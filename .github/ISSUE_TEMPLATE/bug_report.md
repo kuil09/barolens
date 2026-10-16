@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible Lens problem using synthetic content
+about: Report a reproducible Barolens problem using synthetic content
 title: ""
 labels: ""
 assignees: ""
@@ -11,7 +11,7 @@ Never attach private screen content, personal activity logs, credentials, or unr
 ## Environment
 
 - macOS version:
-- Lens app version/build or revision:
+- Barolens app version/build or revision:
 - Local build or packaged candidate:
 - Mac architecture; display count/scaling if relevant:
 - Source → target language; pair installed/preparation state:

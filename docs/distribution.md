@@ -1,12 +1,12 @@
 # Distribution scope
 
-Lens source is available under the [MIT License](../LICENSE), copyright **2026 kuil09**. The current external-distribution route is a downloadable GitHub DMG; notarization is separate from App Store submission.
+Barolens source is available under the [MIT License](../LICENSE), copyright **2026 kuil09**. The current external-distribution route is a downloadable GitHub DMG; notarization is separate from App Store submission.
 
 ## External distribution
 
-Use [GitHub Releases](https://github.com/kuil09/lens/releases) for downloads and the corresponding [release record](https://github.com/kuil09/lens/releases) for exact artifact version, signature, notarization, checksum and remaining limits. A newer main commit or Actions artifact is not automatically a newer public download.
+Use [GitHub Releases](https://github.com/kuil09/barolens/releases) for downloads and the corresponding [release record](https://github.com/kuil09/barolens/releases) for exact artifact version, signature, notarization, checksum and remaining limits. A newer main commit or Actions artifact is not automatically a newer public download.
 
-The workflow preserves `dev.local.lens` and the approved signer. The separate identifier in `Config/Distribution.xcconfig` remains inactive. Do not infer a preferences/permission migration from external notarization. See [Releasing](releasing.md) for supported packaging, protected CI, publication gates and rollback; [Development](development.md#stable-local-signing) covers local identity continuity.
+The workflow preserves `dev.local.barolens` and the approved signer. The separate identifier in `Config/Distribution.xcconfig` remains inactive. Startup migrates existing preferences without deleting the previous domain. The new identifier requires a separate screen-permission check; notarization does not transfer consent. See [Releasing](releasing.md) for supported packaging, protected CI, publication gates and rollback; [Development](development.md#stable-local-signing) covers local identity continuity.
 
 ## Deferred store direction
 

@@ -2,11 +2,11 @@
 
 ## Ownership
 
-`LensAppDelegate` coordinates application startup, permission handoff, and capture restart/stop. `LensMenuController` owns menus/status items, `LensExportCoordinator` owns export actions and directory selection, and `LensObservationBag` removes notification tokens from their issuing centers.
+`BarolensAppDelegate` coordinates application startup, permission handoff, and capture restart/stop. `BarolensMenuController` owns menus/status items, `BarolensExportCoordinator` owns export actions and directory selection, and `BarolensObservationBag` removes notification tokens from their issuing centers.
 
-`LensAuxiliaryWindows` owns help, reader, and language-guide windows. Reader/help content is reused; a closed language guide releases its content and subscriptions. Creating a window does not present it. Explicit presentation restores minimized windows. The reader takes a snapshot only when newly opened, not on ordinary focus return. Onboarding and permission windows remain in the delegate's security flow.
+`BarolensAuxiliaryWindows` owns help, reader, and language-guide windows. Reader/help content is reused; a closed language guide releases its content and subscriptions. Creating a window does not present it. Explicit presentation restores minimized windows. The reader takes a snapshot only when newly opened, not on ordinary focus return. Onboarding and permission windows remain in the delegate's security flow.
 
-`LensToolbarState` supplies the shared menu/toolbar capture and recording eligibility. A running recording can always be stopped, even without a current capture frame. Success feedback never disables another screenshot.
+`BarolensToolbarState` supplies the shared menu/toolbar capture and recording eligibility. A running recording can always be stopped, even without a current capture frame. Success feedback never disables another screenshot.
 
 ## Context, validity, and reading
 
@@ -32,9 +32,9 @@ These are resource/scheduling limits, not latency or total-process-memory guaran
 
 The header, body, and narrow resize strips are separate AppKit input regions. Only the body uses `ignoresMouseEvents`; header controls and exterior resize edges remain interactive. No event tap, event reinjection, or accessibility permission is required. Window flags alone do not prove physical input forwarding.
 
-Capture uses the body rectangle and excludes the Lens application. Export composition excludes toolbar, resize markers, popovers, feedback, and the red recording outline. Recording locks geometry. Close/minimize/sleep and actual capture invalidation retain their stop/finalization policies.
+Capture uses the body rectangle and excludes the Barolens application. Export composition excludes toolbar, resize markers, popovers, feedback, and the red recording outline. Recording locks geometry. Close/minimize/sleep and actual capture invalidation retain their stop/finalization policies.
 
-Ordinary System Settings visits do not trigger permission handoff. Only Lens's explicit screen-access action stops work and hides all overlay panels. Returning shows the appropriate guide without automatically restarting capture or recording.
+Ordinary System Settings visits do not trigger permission handoff. Only Barolens's explicit screen-access action stops work and hides all overlay panels. Returning shows the appropriate guide without automatically restarting capture or recording.
 
 ## Recording
 

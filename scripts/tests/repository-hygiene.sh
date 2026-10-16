@@ -2,9 +2,9 @@
 # Exercise the real index check with synthetic files; no signing or app execution.
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
-WORK=$(mktemp -d /private/tmp/lens-hygiene-regression.XXXXXX)
+WORK=$(mktemp -d /private/tmp/barolens-hygiene-regression.XXXXXX)
 cleanup() {
-    case "$WORK" in /private/tmp/lens-hygiene-regression.??????) [ ! -L "$WORK" ] && rm -rf -- "$WORK" ;; esac
+    case "$WORK" in /private/tmp/barolens-hygiene-regression.??????) [ ! -L "$WORK" ] && rm -rf -- "$WORK" ;; esac
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -17,10 +17,10 @@ git -C "$WORK" add -- 'Allowed file.xcconfig'
 CHECK="$WORK/scripts/repository-hygiene.sh"
 bash "$CHECK"
 count=1
-for file in 'Lens.dmg' 'Release/Lens.pkg' 'Preview.zip' \
+for file in 'barolens.dmg' 'Release/barolens.pkg' 'Preview.zip' \
     'Config/LocalSigning.xcconfig' 'dist/Preview.zip' 'build-design/output' 'Test.xcresult/Info.plist' \
     'Profile.mobileprovision' 'Profile.provisionprofile' 'Private.p12' 'Private.p8' \
-    'login.keychain-db' 'config/.env.local' 'Lens.app/Contents/Info.plist' \
+    'login.keychain-db' 'config/.env.local' '바로렌즈.app/Contents/Info.plist' \
     'Project/xcuserdata/settings.xcuserstate' $'nested\nfolder/Profile.mobileprovision'; do
     mkdir -p "$(dirname "$WORK/$file")"
     cp "$HERE/fixtures/Version.xcconfig" "$WORK/$file"

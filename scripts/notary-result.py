@@ -52,7 +52,7 @@ def main(args):
         app = json.loads(Path(args[3]).read_text())
         dmg = json.loads(Path(args[4]).read_text())
         result = {"commit": args[2], "artifact": args[5], "appSubmission": accepted(app),
-                  "dmgSubmission": accepted(dmg), "status": "Accepted", "bundleIdentifier": "dev.local.lens"}
+                  "dmgSubmission": accepted(dmg), "status": "Accepted", "bundleIdentifier": "dev.local.barolens"}
         Path(args[1]).write_text(json.dumps(result, indent=2) + "\n")
     else:
         raise ValueError("Unknown command")

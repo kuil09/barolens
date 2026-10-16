@@ -45,8 +45,8 @@ class EvidenceTests(unittest.TestCase):
         changes = {"head_sha": "b" * 40, "workflow_id": 999, "head_branch": "feature",
                    "event": "pull_request", "status": "in_progress", "id": "456",
                    "path": ".github/workflows/other.yml",
-                   "repository": {"full_name": "fork/lens"},
-                   "head_repository": {"full_name": "fork/lens"}}
+                   "repository": {"full_name": "fork/barolens"},
+                   "head_repository": {"full_name": "fork/barolens"}}
         for key, value in changes.items():
             with self.subTest(key=key), self.assertRaises(gate.GateError):
                 gate.require_success(SHA, fetcher([dict(RUN, **{key: value})]))
@@ -78,7 +78,7 @@ class EvidenceTests(unittest.TestCase):
     def test_entrypoint_rejects_wrong_context_or_checkout_before_api(self):
         env = {"GITHUB_REPOSITORY": gate.REPOSITORY, "GITHUB_REF": "refs/heads/main",
                "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_SHA": SHA}
-        for key, value in [("GITHUB_REPOSITORY", "fork/lens"), ("GITHUB_REF", "refs/heads/dev"),
+        for key, value in [("GITHUB_REPOSITORY", "fork/barolens"), ("GITHUB_REF", "refs/heads/dev"),
                            ("GITHUB_EVENT_NAME", "pull_request")]:
             with patch.dict(os.environ, dict(env, **{key: value}), clear=True), \
                  patch.object(gate, "require_success") as check, self.assertRaises(gate.GateError):

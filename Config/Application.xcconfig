@@ -1,10 +1,12 @@
 #include "Version.xcconfig"
 
-PRODUCT_NAME = Lens
+PRODUCT_NAME = 바로렌즈
+EXECUTABLE_NAME = barolens
+PRODUCT_MODULE_NAME = Barolens
 GENERATE_INFOPLIST_FILE = YES
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 INFOPLIST_FILE = Config/Info.plist
-INFOPLIST_KEY_CFBundleDisplayName = Lens
+INFOPLIST_KEY_CFBundleDisplayName = 바로렌즈
 INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.productivity
 INFOPLIST_KEY_NSHumanReadableCopyright = Copyright © 2026 kuil09. MIT License.
 MACOSX_DEPLOYMENT_TARGET = 26.4
@@ -13,8 +15,8 @@ SWIFT_VERSION = 6.0
 ENABLE_HARDENED_RUNTIME = YES
 ALWAYS_SEARCH_USER_PATHS = NO
 
-// Keep the existing local app identity. Distribution overrides are explicit.
-PRODUCT_BUNDLE_IDENTIFIER = dev.local.lens
+// Product identity after the full rename. Legacy settings migrate at startup.
+PRODUCT_BUNDLE_IDENTIFIER = dev.local.barolens
 CODE_SIGN_STYLE = Manual
 CODE_SIGN_IDENTITY = -
 

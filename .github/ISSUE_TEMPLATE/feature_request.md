@@ -16,6 +16,6 @@ Describe expected behavior, current behavior, and steps that illustrate the gap.
 
 ## Context
 
-- macOS and Lens app version/build:
+- macOS and Barolens app version/build:
 - Screen Recording permission state (or not relevant):
 - Languages or display setup, if relevant:

@@ -1,10 +1,10 @@
 # DMG installer
 
-For exact published versions, checksums and notarization results, use [GitHub release notes](https://github.com/kuil09/lens/releases).
+For exact published versions, checksums and notarization results, use [GitHub release notes](https://github.com/kuil09/barolens/releases).
 
 ## Layout and constraints
 
-The image presents two native 96-point targets: Lens on the left and Applications on the right, with an arrow and English/Korean/Japanese installation instructions. The license stays at the image root but is hidden from the install view. No custom installer app or runtime dependency is added.
+The image presents two native 96-point targets: Barolens on the left and Applications on the right, with an arrow and English/Korean/Japanese installation instructions. The license stays at the image root but is hidden from the install view. No custom installer app or runtime dependency is added.
 
 Artwork is a 144-DPI, 720-by-440-point background in a 720-by-472-point Finder window. Fixed light artwork does not follow dark mode. Background text is raster, not VoiceOver text; native file names remain accessible and [README](../README.md#get-started) has equivalent instructions. Full assistive-technology and multi-scale acceptance must be recorded per candidate.
 

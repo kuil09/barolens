@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 class InstallerSettingsTests(unittest.TestCase):
     def setUp(self):
-        self.app = "/private/tmp/Lens fixture with spaces/Lens.app"
+        self.app = "/private/tmp/Barolens fixture with spaces/바로렌즈.app"
         self.background = str(ROOT / "Packaging/background.tiff")
         self.settings = runpy.run_path(str(ROOT / "scripts/dmg-settings.py"), init_globals={
             "defines": {"root": str(ROOT), "app": self.app, "background": self.background}
@@ -18,10 +18,10 @@ class InstallerSettingsTests(unittest.TestCase):
         self.assertEqual(self.settings["files"], [self.app, str(ROOT / "LICENSE")])
         self.assertEqual(self.settings["symlinks"], {"Applications": "/Applications"})
         self.assertEqual(self.settings["hide"], ["LICENSE"])
-        self.assertEqual(set(self.settings["icon_locations"]), {"Lens.app", "Applications"})
+        self.assertEqual(set(self.settings["icon_locations"]), {"바로렌즈.app", "Applications"})
 
     def test_icons_are_aligned_and_centered_with_space_for_labels(self):
-        source, target = (self.settings["icon_locations"][name] for name in ["Lens.app", "Applications"])
+        source, target = (self.settings["icon_locations"][name] for name in ["바로렌즈.app", "Applications"])
         self.assertEqual(source[1], target[1])
         self.assertEqual(source[0] + target[0], 720)
         self.assertLess(self.settings["icon_size"], target[0] - source[0])
@@ -37,7 +37,7 @@ class InstallerSettingsTests(unittest.TestCase):
 
     def test_artwork_and_original_icon_are_used_without_modifying_app(self):
         self.assertEqual(self.settings["hide_extensions"], [])
-        self.assertNotIn("Lens.app", self.settings["hide"])
+        self.assertNotIn("바로렌즈.app", self.settings["hide"])
         self.assertEqual(self.settings["background"], self.background)
         self.assertTrue(Path(self.background).is_file())
         self.assertEqual(self.settings["icon"], self.app + "/Contents/Resources/AppIcon.icns")

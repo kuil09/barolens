@@ -22,11 +22,11 @@ Hosted-runner parallel tests stalled while local execution did not reproduce the
 | beta.5 / build 15, CI package | `277506f` | `2ba8739570853d700921bcdbc9ef0509d4709b6ec89d28aaacb7488563f682ed` | App/DMG Accepted, stapled, strict signatures and Gatekeeper passed; public bytes verified |
 | beta.6 / build 16 | `dbf3a0d` | `7af0ef4ab2c22b9fee9525705928a24fc8b6ee10d5ff64721016c55c452265cb` | App/DMG Accepted, stapled, strict signatures and Gatekeeper passed; public bytes verified |
 
-Beta.5 used [protected CI](https://github.com/kuil09/lens/actions/runs/35052988016), app submission `ca1e4bc5-39c7-499a-83f1-4499c5a304bc` and DMG submission `197220a9-690e-4ed5-b5d3-efdb52e00b62`. Its downloaded app was copied into Applications and smoke-tested; a browser-quarantined clean-machine drag-install was not established.
+Beta.5 used [protected CI](https://github.com/kuil09/barolens/actions/runs/35052988016), app submission `ca1e4bc5-39c7-499a-83f1-4499c5a304bc` and DMG submission `197220a9-690e-4ed5-b5d3-efdb52e00b62`. Its downloaded app was copied into Applications and smoke-tested; a browser-quarantined clean-machine drag-install was not established.
 
-Beta.6 used [protected CI](https://github.com/kuil09/lens/actions/runs/35092717950), app submission `77f829d9-9d8e-4536-ad0e-19033dcac306` and DMG submission `c8a0745f-b069-4f93-86b5-d96f7caa56b2`. Public-download verification was completed; a fresh install/runtime test of that public CI binary was not.
+Beta.6 used [protected CI](https://github.com/kuil09/barolens/actions/runs/35092717950), app submission `77f829d9-9d8e-4536-ad0e-19033dcac306` and DMG submission `c8a0745f-b069-4f93-86b5-d96f7caa56b2`. Public-download verification was completed; a fresh install/runtime test of that public CI binary was not.
 
-Beta.7 / build 17 passed [general CI](https://github.com/kuil09/lens/actions/runs/35153810994) and [the notarization workflow](https://github.com/kuil09/lens/actions/runs/35154368113), but was not publicly released before consolidation. Workflow success alone was not reported as independent public-file validation.
+Beta.7 / build 17 passed [general CI](https://github.com/kuil09/barolens/actions/runs/35153810994) and [the notarization workflow](https://github.com/kuil09/barolens/actions/runs/35154368113), but was not publicly released before consolidation. Workflow success alone was not reported as independent public-file validation.
 
 ## Limits retained for future checks
 

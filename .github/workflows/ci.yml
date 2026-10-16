@@ -1,4 +1,4 @@
-name: Lens CI
+name: Barolens CI
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: lens-ci-${{ github.workflow }}-${{ github.ref }}
+  group: barolens-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
       # Available in the official macos-26 runner manifest; never use its moving default.
       # https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md
       DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
-      LENS_TEST_INSTALLED_LANGUAGES: '0'
+      BAROLENS_TEST_INSTALLED_LANGUAGES: '0'
     steps:
       - name: Validate selected Xcode before checkout or compilation
         shell: bash
@@ -45,15 +45,15 @@ jobs:
         run: make build
       - name: Install DMG packaging dependencies
         run: |
-          python3 -m venv "$RUNNER_TEMP/lens-packaging"
-          "$RUNNER_TEMP/lens-packaging/bin/pip" install -r Packaging/requirements.txt
+          python3 -m venv "$RUNNER_TEMP/barolens-packaging"
+          "$RUNNER_TEMP/barolens-packaging/bin/pip" install -r Packaging/requirements.txt
       - name: Build Development DMG
         run: |
-          PATH="$RUNNER_TEMP/lens-packaging/bin:$PATH" make package ARGS='--development --format dmg'
+          PATH="$RUNNER_TEMP/barolens-packaging/bin:$PATH" make package ARGS='--development --format dmg'
       - name: Upload DMG artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: Lens-development-${{ github.sha }}
+          name: barolens-development-${{ github.sha }}
           path: |
             dist/*-DEVELOPMENT-NOT-NOTARIZED.dmg
             dist/*-DEVELOPMENT-NOT-NOTARIZED.dmg.sha256

@@ -74,8 +74,8 @@ def stop_group(process, grace=5):
 
 
 def run(command, *, cwd=None, timeout=480, interval=30, diagnostics=diagnose):
-    env = dict(os.environ, NSUnbufferedIO="YES", LENS_TEST_INSTALLED_LANGUAGES="0",
-               LENS_TEST_WINDOWSERVER="0")
+    env = dict(os.environ, NSUnbufferedIO="YES", BAROLENS_TEST_INSTALLED_LANGUAGES="0",
+               BAROLENS_TEST_WINDOWSERVER="0")
     process = subprocess.Popen(command, cwd=cwd, env=env, start_new_session=True)
     previous = {}
 

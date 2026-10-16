@@ -6,12 +6,12 @@ See [Development](development.md) for build/test commands and [historical verifi
 
 ## Implementation
 
-- `Sources/Lens/Resources/{en,ko,ja}.lproj/Localizable.strings` contains the same UI message keys for each language, checked by tests. English source phrases are keys; translators can reorder positional `%1$@` arguments without changing code.
+- `Sources/Barolens/Resources/{en,ko,ja}.lproj/Localizable.strings` contains the same UI message keys for each language, checked by tests. English source phrases are keys; translators can reorder positional `%1$@` arguments without changing code.
 - `L10n` resolves one bundle locale for both AppKit and SwiftUI, including menus, accessibility, tooltips, status/errors, onboarding, settings, and displayed language names. SwiftPM uses `Bundle.module`; the packaged app uses `Bundle.main`.
 - Localize fixed app copy with `L10n.text`. Pass user text, filenames, and framework error details as arguments, never as localization keys or format strings. Screen text and translation output are not UI copy.
 - UI changes do not download packs. App-specific language overrides used for QA are launch arguments only; no global or persistent language preferences are changed.
 - The onboarding body scrolls to accommodate longer copy without moving its footer actions. Settings forms already scroll. Compact translation-switch labels stay on one line.
-- macOS owns standard dialog strings and underlying framework errors; Lens does not replace those translations. Third-party linguistic review and a complete VoiceOver journey are not claimed.
+- macOS owns standard dialog strings and underlying framework errors; Barolens does not replace those translations. Third-party linguistic review and a complete VoiceOver journey are not claimed.
 
 ## Validation
 

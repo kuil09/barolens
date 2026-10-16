@@ -45,7 +45,7 @@ class WatchdogTests(unittest.TestCase):
         self.assertNotIn("paths-ignore", text)
 
     def test_shared_test_entrypoint_serializes_without_filtering(self):
-        script = (ROOT / "scripts/lens.sh").read_text()
+        script = (ROOT / "scripts/barolens.sh").read_text()
         commands = [shlex.split(line) for line in script.splitlines() if " swift test " in line]
         self.assertEqual(len(commands), 1)
         command = commands[0]
@@ -53,7 +53,7 @@ class WatchdogTests(unittest.TestCase):
         self.assertNotIn("--parallel", command)
         self.assertNotIn("--filter", command)
         self.assertNotIn("--skip", command)
-        self.assertIn("LENS_TEST_INSTALLED_LANGUAGES=$INSTALLED", command)
+        self.assertIn("BAROLENS_TEST_INSTALLED_LANGUAGES=$INSTALLED", command)
 
     def test_success_failure_and_signal_status_are_preserved(self):
         for code, expected in [(0, 0), (7, 7), (-15, 143)]:
@@ -115,7 +115,7 @@ class WatchdogTests(unittest.TestCase):
             self.assertEqual(watchdog.run(["synthetic"]), 143)
             stop.assert_called_once_with(process)
             self.assertTrue(launch.call_args.kwargs["start_new_session"])
-            self.assertEqual(launch.call_args.kwargs["env"]["LENS_TEST_INSTALLED_LANGUAGES"], "0")
+            self.assertEqual(launch.call_args.kwargs["env"]["BAROLENS_TEST_INSTALLED_LANGUAGES"], "0")
         self.assertEqual(signal.getsignal(signal.SIGTERM), before)
 
     def test_group_cleanup_kills_remaining_children_after_parent_exits(self):

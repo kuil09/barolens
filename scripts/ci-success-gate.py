@@ -5,7 +5,7 @@ import re
 import subprocess
 import sys
 
-REPOSITORY = "kuil09/lens"
+REPOSITORY = "kuil09/barolens"
 WORKFLOW_PATH = ".github/workflows/ci.yml"
 
 
@@ -31,7 +31,7 @@ def require_success(sha, fetch=api):
     workflow = fetch(f"repos/{REPOSITORY}/actions/workflows/ci.yml")
     if (workflow.get("path") != WORKFLOW_PATH or workflow.get("state") != "active"
             or type(workflow.get("id")) is not int):
-        raise GateError("Expected active Lens CI workflow is unavailable.")
+        raise GateError("Expected active Barolens CI workflow is unavailable.")
     pages = fetch(f"repos/{REPOSITORY}/actions/workflows/{workflow['id']}/runs"
                   f"?head_sha={sha}&branch=main&event=push&status=success&per_page=100", paginate=True)
     for page in pages:
@@ -45,7 +45,7 @@ def require_success(sha, fetch=api):
                     and (run.get("head_repository") or {}).get("full_name") == REPOSITORY
                     and type(run.get("id")) is int and run["id"] > 0):
                 return run["id"]
-    raise GateError("No completed successful main-push Lens CI for this exact SHA; signing is blocked.")
+    raise GateError("No completed successful main-push Barolens CI for this exact SHA; signing is blocked.")
 
 
 def main():

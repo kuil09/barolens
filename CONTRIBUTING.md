@@ -1,8 +1,8 @@
-# Contributing to Lens
+# Contributing to Barolens
 
-Lens is a development preview. Start with the [development guide](docs/development.md), [privacy notes](docs/privacy.md), and [manual acceptance checklist](docs/releasing.md).
+Barolens is a development preview. Start with the [development guide](docs/development.md), [privacy notes](docs/privacy.md), and [manual acceptance checklist](docs/releasing.md).
 
-Use [distribution](docs/distribution.md) to distinguish the external DMG route from deferred store work. Candidate-specific results and unverified items belong to the linked validation record in each [release's notes](https://github.com/kuil09/lens/releases); historical test results do not certify a newer build.
+Use [distribution](docs/distribution.md) to distinguish the external DMG route from deferred store work. Candidate-specific results and unverified items belong to the linked validation record in each [release's notes](https://github.com/kuil09/barolens/releases); historical test results do not certify a newer build.
 
 ## Issues
 
@@ -18,4 +18,4 @@ Run checks relevant to the change using the documented development workflow. Rep
 
 Do not include build output, generated screenshots, private screen recordings, personal paths, or secrets. Use synthetic fixtures for reproducible examples.
 
-Lens uses the [MIT License](LICENSE), copyright 2026 kuil09. Preserve the license notice in distributions. This guide does not introduce a separate contributor agreement.
+Barolens uses the [MIT License](LICENSE), copyright 2026 kuil09. Preserve the license notice in distributions. This guide does not introduce a separate contributor agreement.

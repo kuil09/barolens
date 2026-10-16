@@ -17,7 +17,7 @@ git -C "$ROOT" ls-files -z | (
         esac
     done
     if [ "$bad" != 0 ]; then
-        printf 'Lens: Tracked artifact hygiene failed.\n' >&2
+        printf 'Barolens: Tracked artifact hygiene failed.\n' >&2
         exit 1
     fi
 )

@@ -1,12 +1,12 @@
 # Releasing and manual acceptance
 
-This is a procedure, not a declaration that a candidate passed. Exact published versions, hashes, signing/notarization routes, and remaining limits belong to [release notes](https://github.com/kuil09/lens/releases) and their linked validation records. Source changes, CI artifacts, and public downloads are separate states.
+This is a procedure, not a declaration that a candidate passed. Exact published versions, hashes, signing/notarization routes, and remaining limits belong to [release notes](https://github.com/kuil09/barolens/releases) and their linked validation records. Source changes, CI artifacts, and public downloads are separate states.
 
 ## Select and preserve the candidate
 
 1. Inspect the worktree, remote main, existing tag/release assets, and any running CI or Apple submissions. Preserve unrelated work and user settings. Do not repeat a partially completed commit, dispatch, submission, or upload.
 2. Pin the intended commit. Read version/build/channel from [Version.xcconfig](../Config/Version.xcconfig); compare installed, local-preview, and public artifacts. New application candidates need an unused build number. Packaging-only CI outputs include the source SHA to distinguish otherwise identical version metadata.
-3. Preserve the approved `dev.local.lens` identity and Developer ID team unless an identity migration is explicitly requested. [Distribution.xcconfig](../Config/Distribution.xcconfig) still has a blank separate public identifier; do not enable or repurpose it to run the current identity-preserving CI path.
+3. Preserve the approved `dev.local.barolens` identity and Developer ID team unless an identity migration is explicitly requested. [Distribution.xcconfig](../Config/Distribution.xcconfig) still has a blank separate public identifier; do not enable or repurpose it to run the current identity-preserving CI path.
 4. Run relevant checks/tests and document runtime acceptance on synthetic content. A build/package operation alone does not authorize publication, a tag move, or history rewriting.
 
 ## Development packaging
@@ -20,15 +20,15 @@ make package ARGS='--development --format dmg'
 
 Choose the required format; ZIP is the default and does not need packaging dependencies. DMG requires [the pinned packaging tools](dmg-installer.md#packaging-only-setup). Both commands consume an existing app: they do not build, sign, notarize, launch, quit, or publish it.
 
-Output names derive from the built version/channel/build and retain **DEVELOPMENT-NOT-NOTARIZED**, even if the contained app has a Developer ID signature. Inspect the path printed by the command and its checksum sidecar, not a historical filename. Existing outputs are not overwritten. `--app` accepts an existing Lens.app by absolute physical path without altering another running build.
+Output names derive from the built version/channel/build and retain **DEVELOPMENT-NOT-NOTARIZED**, even if the contained app has a Developer ID signature. Inspect the path printed by the command and its checksum sidecar, not a historical filename. Existing outputs are not overwritten. `--app` accepts an existing 바로렌즈.app by absolute physical path without altering another running build.
 
-The wrapper requires the license and validates app metadata, arm64 support, minimum macOS version in bundle/executable, and privacy manifest. ZIP contains Lens.app and LICENSE; DMG also includes the Applications symlink and installer artwork. A successful development package cannot be relabeled as notarized.
+The wrapper requires the license and validates app metadata, arm64 support, minimum macOS version in bundle/executable, privacy manifest, and strict signature integrity, including for development previews. ZIP contains 바로렌즈.app and LICENSE; DMG also includes the Applications symlink and installer artwork. A successful development package cannot be relabeled as notarized.
 
 ## Notarized DMG via protected CI
 
-The supported automated path is **Lens Notarized DMG**, a manual main-only workflow protected by the `release-signing` environment. See [CI configuration and execution](ci-notarization.md) for the single authoritative list of Secret/variable names and checks. Environment rules and main restrictions must be preserved; required human review must not be self-approved or bypassed.
+The supported automated path is **Barolens Notarized DMG**, a manual main-only workflow protected by the `release-signing` environment. See [CI configuration and execution](ci-notarization.md) for the single authoritative list of Secret/variable names and checks. Environment rules and main restrictions must be preserved; required human review must not be self-approved or bypassed.
 
-Before an authorized dispatch, pin/verify remote main and the workflow's source SHA, and wait for `Lens CI` to complete successfully on that exact main-push commit. The notarization workflow verifies that history before environment approval and checks it again before accessing signing secrets; missing or unverifiable success blocks signing. Tests are not repeated in the signing job. The workflow validates tools, imports the existing signer into a disposable keychain, authenticates with Apple, and builds with hardened runtime, secure timestamp, and no debugger-attachment entitlement. It then:
+Before an authorized dispatch, pin/verify remote main and the workflow's source SHA, and wait for `Barolens CI` to complete successfully on that exact main-push commit. The notarization workflow verifies that history before environment approval and checks it again before accessing signing secrets; missing or unverifiable success blocks signing. Tests are not repeated in the signing job. The workflow validates tools, imports the existing signer into a disposable keychain, authenticates with Apple, and builds with hardened runtime, secure timestamp, and no debugger-attachment entitlement. It then:
 
 1. Submits the app ZIP once, requires **Accepted**, staples and validates the app, and assesses Gatekeeper.
 2. Creates a staging development DMG from that exact app, signs/submits the DMG separately, requires **Accepted**, staples it and assesses Gatekeeper.
@@ -66,7 +66,7 @@ Candidate-specific evidence belongs in the GitHub release notes; do not duplicat
 | Languages / offline | Check missing/unsupported pairs, readiness-in-progress, failure/retry and canceled downloads. Follow system guidance, return/recheck, then test new synthetic text offline. Do not remove a user's models merely to create a test case. |
 | Sustained use | At least 30 minutes of static/scrolling content, move/resize and language changes; measure responsiveness, CPU/memory and thermal behavior. Duration alone is not a latency guarantee. |
 | Displays / Spaces | Different scales, screen boundaries/disconnects, Spaces and full-screen apps; verify alignment, valid capture regions and recovery. |
-| Lifecycle / input | Real cross-app body click/drag/scroll and keyboard focus; toolbar/unlock/record-stop remain usable with no double input. Recording locks move/resize/zoom, shows a red outline, and restores geometry controls on stop. Move, zoom, minimize, restore, hide, close, sleep and quit leave no orphan panels. Only Lens's explicit screen-access action hides all overlay panels for authentication; ordinary System Settings visits leave the session unchanged. |
+| Lifecycle / input | Real cross-app body click/drag/scroll and keyboard focus; toolbar/unlock/record-stop remain usable with no double input. Recording locks move/resize/zoom, shows a red outline, and restores geometry controls on stop. Move, zoom, minimize, restore, hide, close, sleep and quit leave no orphan panels. Only Barolens's explicit screen-access action hides all overlay panels for authentication; ordinary System Settings visits leave the session unchanged. |
 | Export / recovery | PNG and playable silent MP4 contain background/translations but no toolbar, resize marks or popover. Check camera success/failure, current-folder opening, persistence, collisions/no overwrite, folder changes mid-recording, missing-folder errors, stop/finalization and recovery with disposable files. |
 | UI / accessibility | English/Korean/Japanese, narrow windows, light/dark, Reduce Transparency/Motion, keyboard and VoiceOver. Glass layout screenshots alone do not establish actual compositor appearance or focus/input behavior. |
 

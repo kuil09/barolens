@@ -74,7 +74,7 @@ class NotaryMetadataTests(unittest.TestCase):
             source = path / "result.json"
             source.write_text(json.dumps({"id": ID, "status": "Accepted", "password": "FAKE-SECRET"}))
             output = path / "provenance.json"
-            notary.main(["provenance", str(output), "a" * 40, str(source), str(source), "Lens.dmg"])
+            notary.main(["provenance", str(output), "a" * 40, str(source), str(source), "barolens.dmg"])
             self.assertNotIn("FAKE-SECRET", output.read_text())
             self.assertEqual(json.loads(output.read_text())["appSubmission"], ID)
 
@@ -84,11 +84,11 @@ class SigningPreflightTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.env = {"PATH": os.environ["PATH"], "GITHUB_ACTIONS": "true",
                     "RUNNER_ENVIRONMENT": "github-hosted", "RUNNER_TEMP": self.temp.name,
-                    "GITHUB_REPOSITORY": "kuil09/lens", "GITHUB_REF": "refs/heads/main",
+                    "GITHUB_REPOSITORY": "kuil09/barolens", "GITHUB_REF": "refs/heads/main",
                     "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_SHA": "a" * 40,
-                    "LENS_TEAM_ID": "ABCDEFGHIJ", "LENS_CERTIFICATE_P12_BASE64": "FAKE-CERT",
-                    "LENS_CERTIFICATE_PASSWORD": "FAKE-PASSWORD", "LENS_APPLE_ID": "fake@example.invalid",
-                    "LENS_APPLE_APP_PASSWORD": "FAKE-APP-PASSWORD"}
+                    "BAROLENS_TEAM_ID": "ABCDEFGHIJ", "BAROLENS_CERTIFICATE_P12_BASE64": "FAKE-CERT",
+                    "BAROLENS_CERTIFICATE_PASSWORD": "FAKE-PASSWORD", "BAROLENS_APPLE_ID": "fake@example.invalid",
+                    "BAROLENS_APPLE_APP_PASSWORD": "FAKE-APP-PASSWORD"}
 
     def tearDown(self):
         self.temp.cleanup()
@@ -105,8 +105,8 @@ class SigningPreflightTests(unittest.TestCase):
         self.assertEqual(self.run_preflight(self.env).returncode, 0)
 
     def test_every_missing_secret_fails_before_signing(self):
-        for key in ["LENS_CERTIFICATE_P12_BASE64", "LENS_CERTIFICATE_PASSWORD", "LENS_APPLE_ID",
-                    "LENS_APPLE_APP_PASSWORD", "LENS_TEAM_ID"]:
+        for key in ["BAROLENS_CERTIFICATE_P12_BASE64", "BAROLENS_CERTIFICATE_PASSWORD", "BAROLENS_APPLE_ID",
+                    "BAROLENS_APPLE_APP_PASSWORD", "BAROLENS_TEAM_ID"]:
             env = self.env.copy()
             del env[key]
             with self.subTest(key=key):
@@ -114,9 +114,9 @@ class SigningPreflightTests(unittest.TestCase):
 
     def test_pull_requests_other_branches_forks_and_local_runs_cannot_sign(self):
         for key, value in [("GITHUB_REF", "refs/pull/1/merge"), ("GITHUB_REF", "refs/tags/v1"),
-                           ("GITHUB_EVENT_NAME", "pull_request_target"), ("GITHUB_REPOSITORY", "someone/lens"),
+                           ("GITHUB_EVENT_NAME", "pull_request_target"), ("GITHUB_REPOSITORY", "someone/barolens"),
                            ("RUNNER_ENVIRONMENT", "self-hosted"), ("GITHUB_ACTIONS", "false"),
-                           ("GITHUB_SHA", "bad"), ("LENS_TEAM_ID", "bad")]:
+                           ("GITHUB_SHA", "bad"), ("BAROLENS_TEAM_ID", "bad")]:
             env = self.env.copy()
             env[key] = value
             with self.subTest(key=key, value=value):
@@ -124,7 +124,7 @@ class SigningPreflightTests(unittest.TestCase):
 
     def test_build_with_missing_secret_does_not_create_outputs(self):
         env = self.env.copy()
-        del env["LENS_CERTIFICATE_PASSWORD"]
+        del env["BAROLENS_CERTIFICATE_PASSWORD"]
         result = subprocess.run(["bash", str(ROOT / "scripts/ci-notarize.sh"), "build"],
                                 env=env, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)

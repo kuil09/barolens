@@ -27,4 +27,4 @@ grid_spacing = 80
 icon_size = 96
 text_size = 14
 label_pos = "bottom"
-icon_locations = {"Lens.app": (192, 214), "Applications": (528, 214)}
+icon_locations = {"바로렌즈.app": (192, 214), "Applications": (528, 214)}

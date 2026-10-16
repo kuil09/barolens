@@ -3,19 +3,19 @@
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)
 FIXTURES="$HERE/fixtures"
-WORK=$(mktemp -d /private/tmp/lens-shell-regression.XXXXXX)
-ALT=$(mktemp -d /private/tmp/lens-derived-data.XXXXXX)
+WORK=$(mktemp -d /private/tmp/barolens-shell-regression.XXXXXX)
+ALT=$(mktemp -d /private/tmp/barolens-derived-data.XXXXXX)
 cleanup() {
     # Only the two unique directories created by this test run are disposable.
-    case "$WORK" in /private/tmp/lens-shell-regression.??????) [ ! -L "$WORK" ] && rm -rf -- "$WORK" ;; esac
-    case "$ALT" in /private/tmp/lens-derived-data.??????) [ ! -L "$ALT" ] && rm -rf -- "$ALT" ;; esac
+    case "$WORK" in /private/tmp/barolens-shell-regression.??????) [ ! -L "$WORK" ] && rm -rf -- "$WORK" ;; esac
+    case "$ALT" in /private/tmp/barolens-derived-data.??????) [ ! -L "$ALT" ] && rm -rf -- "$ALT" ;; esac
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 REPO="$WORK/Repo with spaces"
 mkdir -p "$REPO/scripts" "$REPO/Config" "$WORK/bin"
-cp "$HERE/../lens.sh" "$REPO/scripts/lens.sh"
+cp "$HERE/../barolens.sh" "$REPO/scripts/barolens.sh"
 cp "$FIXTURES/Version.xcconfig" "$FIXTURES/Distribution.xcconfig" "$FIXTURES/Application.xcconfig" "$REPO/Config/"
 # A fixture license is sufficient to exercise presence/packaging; never a release.
 cp "$FIXTURES/Version.xcconfig" "$REPO/LICENSE"
@@ -27,14 +27,14 @@ export PATH="$WORK/bin:$PATH"
 export MOCK_UNEXPECTED="$WORK/unexpected-compilation"
 export MOCK_RUNNING='' MOCK_FAIL='' MOCK_PS_FAILURE=0
 DD="$REPO/build-design"
-APP="$DD/Build/Products/Release/Lens.app"
-export MOCK_EXPECTED_EXECUTABLE="$APP/Contents/MacOS/Lens"
+APP="$DD/Build/Products/Release/바로렌즈.app"
+export MOCK_EXPECTED_EXECUTABLE="$APP/Contents/MacOS/barolens"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$FIXTURES/Info.plist" "$APP/Contents/Info.plist"
 cp "$FIXTURES/PrivacyInfo.xcprivacy" "$APP/Contents/Resources/PrivacyInfo.xcprivacy"
-cp "$FIXTURES/mock-tool.sh" "$APP/Contents/MacOS/Lens"
-chmod +x "$APP/Contents/MacOS/Lens"
-SCRIPT="$REPO/scripts/lens.sh"
+cp "$FIXTURES/mock-tool.sh" "$APP/Contents/MacOS/barolens"
+chmod +x "$APP/Contents/MacOS/barolens"
+SCRIPT="$REPO/scripts/barolens.sh"
 COUNT=0
 expect_fail() {
     local message=$1
@@ -69,7 +69,7 @@ expect_fail 'Use a dedicated mktemp' clean --derived-data /private/tmp/not-a-bui
 ln -s "$DD" "$WORK/link"
 expect_fail 'Symlink paths' clean --derived-data "$WORK/link"
 
-export MOCK_RUNNING="$APP/Contents/MacOS/Lens"
+export MOCK_RUNNING="$APP/Contents/MacOS/barolens"
 for command in build clean; do expect_fail 'A process is running' "$command"; done
 expect_fail 'selected app is running' package
 test -f "$APP/Contents/Info.plist"
@@ -81,31 +81,31 @@ export MOCK_RUNNING='' MOCK_PS_FAILURE=1
 for command in build package clean; do expect_fail 'Cannot inspect processes' "$command"; done
 export MOCK_PS_FAILURE=0
 
-mkdir -p "$DD/.lens-operation-lock"
+mkdir -p "$DD/.barolens-operation-lock"
 expect_fail 'holds the output lock' clean
-rmdir "$DD/.lens-operation-lock"
+rmdir "$DD/.barolens-operation-lock"
 ln -s "$WORK" "$DD/Logs"
 expect_fail 'Symlink paths' clean
 rm "$DD/Logs"
 ln -s "$WORK" "$APP/Contents/MacOS/escape"
 # Metadata path protection is checked without invoking any build tool.
-mv "$APP/Contents/MacOS/Lens" "$WORK/executable"
-ln -s "$WORK/executable" "$APP/Contents/MacOS/Lens"
+mv "$APP/Contents/MacOS/barolens" "$WORK/executable"
+ln -s "$WORK/executable" "$APP/Contents/MacOS/barolens"
 expect_fail 'Symlink paths' build
-rm "$APP/Contents/MacOS/Lens" "$APP/Contents/MacOS/escape"
-mv "$WORK/executable" "$APP/Contents/MacOS/Lens"
+rm "$APP/Contents/MacOS/barolens" "$APP/Contents/MacOS/escape"
+mv "$WORK/executable" "$APP/Contents/MacOS/barolens"
 
 expect_fail 'requires --confirmed-distribution-id' package
-expect_fail 'Placeholder/local' package --confirmed-distribution-id dev.local.lens
-expect_fail 'does not match Distribution' package --confirmed-distribution-id org.other.lens
+expect_fail 'Placeholder/local' package --confirmed-distribution-id dev.local.barolens
+expect_fail 'does not match Distribution' package --confirmed-distribution-id org.other.overlay
 mv "$REPO/LICENSE" "$WORK/license"
-expect_fail 'requires LICENSE' package --confirmed-distribution-id org.lens.regression
+expect_fail 'requires LICENSE' package --confirmed-distribution-id org.barolens.regression
 mv "$WORK/license" "$REPO/LICENSE"
 cp "$FIXTURES/Version.xcconfig" "$REPO/Config/Distribution.xcconfig"
-expect_fail 'Expected one literal LENS_DISTRIBUTION' package --confirmed-distribution-id org.lens.regression
+expect_fail 'Expected one literal BAROLENS_DISTRIBUTION' package --confirmed-distribution-id org.barolens.regression
 cp "$FIXTURES/Distribution.xcconfig" "$REPO/Config/Distribution.xcconfig"
 
-for field in CFBundleShortVersionString CFBundleVersion LensReleaseChannel; do
+for field in CFBundleShortVersionString CFBundleVersion BarolensReleaseChannel; do
     /usr/libexec/PlistBuddy -c "Set :$field wrong" "$APP/Contents/Info.plist"
     expect_fail 'does not match Version.xcconfig' package --development
     cp "$FIXTURES/Info.plist" "$APP/Contents/Info.plist"
@@ -131,18 +131,27 @@ for gate in arm64 minos minos-newer signature authority runtime assessment notar
         notarization) message='Notarized Developer ID assessment' ;;
         staple) message='Stapled notarization ticket' ;;
     esac
-    expect_fail "$message" package --confirmed-distribution-id org.lens.regression
+    expect_fail "$message" package --confirmed-distribution-id org.barolens.regression
     test ! -d "$REPO/dist"
 done
 export MOCK_FAIL=''
 
+export MOCK_FAIL=signature
+expect_fail 'signature verification failed' package --development
+test ! -d "$REPO/dist"
+export MOCK_FAIL=''
+
 # Real ZIP/SHA operations on a fake app test contents, never public authenticity.
 bash "$SCRIPT" package --development > "$WORK/result" 2>&1
-PREVIEW="$REPO/dist/Lens-0.1.0-beta.1-1-DEVELOPMENT-NOT-NOTARIZED.zip"
+PREVIEW="$REPO/dist/barolens-0.1.0-beta.1-1-DEVELOPMENT-NOT-NOTARIZED.zip"
 # Consume the whole listing: grep -q can SIGPIPE unzip under pipefail.
 unzip -Z1 "$PREVIEW" > "$WORK/archive-entries"
 grep -qx LICENSE "$WORK/archive-entries"
-grep -qx Lens.app/Contents/Info.plist "$WORK/archive-entries"
+# unzip's listing under LC_ALL=C escapes Korean filenames. Verify the actual
+# restored bundle instead of interpreting that display encoding as a ZIP path.
+ditto -x -k "$PREVIEW" "$WORK/unpacked"
+cmp "$APP/Contents/Info.plist" "$WORK/unpacked/바로렌즈.app/Contents/Info.plist"
+cmp "$APP/Contents/MacOS/barolens" "$WORK/unpacked/바로렌즈.app/Contents/MacOS/barolens"
 (cd "$REPO/dist" && shasum -a 256 -c "${PREVIEW##*/}.sha256") > "$WORK/result"
 expect_fail 'refusing overwrite' package --development
 COUNT=$((COUNT + 1))
@@ -162,17 +171,17 @@ test -f "$PREVIEW"
 test -f "$APP/Contents/Info.plist"
 # Explicit --app works while another app in the canonical tree is running.
 mkdir -p "$WORK/External app"
-cp -R "$APP" "$WORK/External app/Lens.app"
-export MOCK_RUNNING="$APP/Contents/MacOS/Lens"
-export MOCK_EXPECTED_EXECUTABLE="$WORK/External app/Lens.app/Contents/MacOS/Lens"
-expect_fail 'refusing overwrite' package --development --app "$WORK/External app/Lens.app"
-export MOCK_EXPECTED_EXECUTABLE="$APP/Contents/MacOS/Lens"
+cp -R "$APP" "$WORK/External app/바로렌즈.app"
+export MOCK_RUNNING="$APP/Contents/MacOS/barolens"
+export MOCK_EXPECTED_EXECUTABLE="$WORK/External app/바로렌즈.app/Contents/MacOS/barolens"
+expect_fail 'refusing overwrite' package --development --app "$WORK/External app/바로렌즈.app"
+export MOCK_EXPECTED_EXECUTABLE="$APP/Contents/MacOS/barolens"
 export MOCK_RUNNING=''
 # The single dist lock serializes package attempts from different DerivedData.
 rm "$PREVIEW" "$PREVIEW.sha256"
-mkdir "$REPO/dist/.lens-package-lock"
+mkdir "$REPO/dist/.barolens-package-lock"
 expect_fail 'holds the dist lock' package --development --derived-data "$ALT" --app "$APP"
-rmdir "$REPO/dist/.lens-package-lock"
+rmdir "$REPO/dist/.barolens-package-lock"
 test ! -e "$MOCK_UNEXPECTED"
 COUNT=$((COUNT + 1))
 printf 'Shell regressions passed (%s assertions; mocked process/signature metadata, no compilation or notarization).\n' "$COUNT"

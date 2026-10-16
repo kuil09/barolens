@@ -24,7 +24,7 @@ func text(_ value: String, y: CGFloat, size fontSize: CGFloat, weight: NSFont.We
                          .foregroundColor: color, .paragraphStyle: style])
 }
 
-text("Lens", y: 354, size: 36, weight: .semibold)
+text("바로렌즈", y: 354, size: 36, weight: .semibold)
 text("Translate what you see.", y: 320, size: 17)
 
 // A standard SF Symbol indicates the direction; it is never a fake draggable target.
@@ -34,10 +34,10 @@ let arrowRect = NSRect(x: 338, y: 212, width: 44, height: 34)
 NSColor(calibratedRed: 0.16, green: 0.44, blue: 0.70, alpha: 1).setFill()
 arrow.draw(in: arrowRect)
 
-text("Drag Lens into Applications", y: 114, size: 19, weight: .medium)
-text("Lens를 응용 프로그램 폴더로 드래그하세요", y: 83, size: 13)
-text("LensをApplicationsフォルダへドラッグ", y: 59, size: 13)
-text("Open Lens from Applications when the copy finishes.", y: 19, size: 11,
+text("Drag 바로렌즈 into Applications", y: 114, size: 19, weight: .medium)
+text("바로렌즈를 응용 프로그램 폴더로 드래그하세요", y: 83, size: 13)
+text("바로렌즈をApplicationsフォルダへドラッグ", y: 59, size: 13)
+text("Open 바로렌즈 from Applications when the copy finishes.", y: 19, size: 11,
      color: NSColor(calibratedRed: 0.33, green: 0.39, blue: 0.46, alpha: 1))
 NSGraphicsContext.restoreGraphicsState()
 try bitmap.representation(using: .tiff, properties: [.compressionMethod: 5])!
