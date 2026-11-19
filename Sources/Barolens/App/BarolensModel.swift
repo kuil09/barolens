@@ -68,7 +68,8 @@ final class BarolensModel: ObservableObject {
         self.languages = languages ?? LanguageCatalog()
         self.preferredLanguages = preferredLanguages
         self.translator = translator ?? AppleTranslationEngine()
-        source = defaults.string(forKey: "source").flatMap(BarolensLanguage.init(rawValue:))
+        let savedSource = defaults.string(forKey: "source")
+        source = savedSource.flatMap { ["auto", "automatic", "system"].contains($0.lowercased()) ? nil : BarolensLanguage(rawValue: $0) }
         let savedTarget = defaults.string(forKey: "target").flatMap(BarolensLanguage.init(rawValue:))
         targetPreference = savedTarget
         target = savedTarget ?? preferredLanguages().first.flatMap(BarolensLanguage.init(rawValue:)) ?? .english
@@ -93,12 +94,18 @@ final class BarolensModel: ObservableObject {
     }
     var regionVersion: UInt64 { gate.version.region }
     var selectableSources: [BarolensLanguage] { languages.installedSources(to: target) }
+    var sourceChoices: [BarolensLanguage] {
+        guard let source, !selectableSources.contains(source) else { return selectableSources }
+        return [source] + selectableSources.filter { !$0.isSameLanguage(as: source) }
+    }
+    func isSourceInstalled(_ source: BarolensLanguage) -> Bool { selectableSources.contains { $0.isSameLanguage(as: source) } }
     var canTranslate: Bool {
         readiness == .ready
     }
     private var hasInstalledSelection: Bool {
         guard languages.installedTargets.contains(target) else { return false }
-        return source.map { selectableSources.contains($0) } ?? !selectableSources.isEmpty
+        guard let source else { return false }
+        return isSourceInstalled(source)
     }
     var systemTarget: BarolensLanguage {
         BarolensLanguage.systemDefault(preferred: preferredLanguages(), supported: languages.installedTargets)
@@ -127,16 +134,24 @@ final class BarolensModel: ObservableObject {
         guard refreshGeneration == token, !Task.isCancelled else { return }
         if let error = languages.error { readiness = .failed(error); return }
         let oldTarget = target
+        let oldSource = source
         changingLanguagePair = true
         applyLanguagePreferences()
         changingLanguagePair = false
-        if oldTarget != target { settingsChanged() }
         await languages.refresh(target: target)
         guard refreshGeneration == token, !Task.isCancelled else { return }
+        if let error = languages.error { readiness = .failed(error); return }
+        changingLanguagePair = true
         reconcileSource()
+        changingLanguagePair = false
         readiness = hasInstalledSelection ? .ready : .missing
         if running && !canTranslate { suspend() }
-        else if running && previousSources != selectableSources { settingsChanged() }
+        else if running {
+            if previousSources != selectableSources || oldTarget != target || oldSource != source {
+                onRegionInvalidated?(); pipeline.reset()
+            }
+            translateLatestFrame()
+        }
     }
     private func applyLanguagePreferences() {
         guard languages.hasLoaded else { return }
@@ -155,13 +170,18 @@ final class BarolensModel: ObservableObject {
             guard let self else { return }
             await languages.refresh(target: target)
             guard refreshGeneration == token, !Task.isCancelled else { return }
+            changingLanguagePair = true
             reconcileSource()
+            changingLanguagePair = false
             readiness = languages.error.map { .failed($0) } ?? (hasInstalledSelection ? .ready : .missing)
             if running && !canTranslate { suspend() }
+            else { translateLatestFrame() }
         }
     }
     private func reconcileSource() {
-        if let source, !selectableSources.contains(source) { self.source = nil }
+        // Missing packs must not erase an explicit preference or silently enable detection.
+        guard source == nil, !selectableSources.isEmpty else { return }
+        source = BarolensLanguage.systemDefault(preferred: preferredLanguages(), supported: selectableSources)
     }
     func attach(_ view: BarolensSurface) {
         surface = view; view.setTranslationActive(running); view.overlay.maskOpacity = opacity
@@ -179,8 +199,8 @@ final class BarolensModel: ObservableObject {
     func begin() { running = true; status = L10n.text("Connecting to the screen…") }
     func suspend() { startRequest.cancel(); running = false; hasFrame = false; invalidate(); surface?.canvas.clear(); status = L10n.text("Pause") }
     private func settingsChanged() {
-        startRequest.cancel()
         guard !changingLanguagePair else { return }
+        startRequest.cancel()
         if readiness != .checking {
             readiness = languages.error.map { .failed($0) } ?? (hasInstalledSelection ? .ready : .missing)
         }
@@ -188,13 +208,21 @@ final class BarolensModel: ObservableObject {
     }
     private func receive(_ frame: CapturedFrame) {
         guard running, frame.version == gate.version.region else { return }
+        if !hasFrame { status = L10n.text("Screen connected · Waiting for text") }
         frameCount += 1; surface?.canvas.present(frame); hasFrame = true
         let recordingFrame = RecordingFrame(id: frame.id, contextID: frame.version, capturedAt: frame.capturedAt,
             buffer: frame.buffer, pointSize: surface?.bounds.size ?? CGSize(width: CVPixelBufferGetWidth(frame.buffer),
                 height: CVPixelBufferGetHeight(frame.buffer)), opacity: opacity)
         latestRecordingFrame = recordingFrame
         onRecordingFrame?(recordingFrame)
-        pipeline.receive(CIImage(cvPixelBuffer: frame.buffer),
+        translateLatestFrame()
+    }
+    private func translateLatestFrame() {
+        // Static screens may supply one complete frame, then only idle notifications.
+        // Keep that frame while languages are checked and submit it exactly when ready.
+        guard running, canTranslate, let source, let recordingFrame = latestRecordingFrame,
+              recordingFrame.contextID == gate.version.region else { return }
+        pipeline.receive(CIImage(cvPixelBuffer: recordingFrame.buffer),
             context: .init(source: source, target: target, languages: languages.sourceLanguages), recordingFrame: recordingFrame)
     }
     private func updateMetrics() {

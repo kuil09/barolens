@@ -17,150 +17,92 @@ import Testing
     }
 }
 
-@Test @MainActor func toolbarActionsFollowCaptureAndRecordingState() throws {
+@Test @MainActor func rightRailActionsFollowCaptureRecordingAndLockState() throws {
     _ = NSApplication.shared
     var actions: [String] = []
-    let toolbar = BarolensToolbar(onCapture: { actions.append("capture") }, onRecord: { actions.append("record") })
-    let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 800, height: 500), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-    toolbar.attach(to: window)
-    let capture = try #require(toolbar.items["capture"])
-    let record = try #require(toolbar.items["record"])
+    let controls = BarolensToolbar(onCapture: { actions.append("capture") }, onRecord: { actions.append("record") },
+        onReader: { actions.append("reader") }, onSettings: { actions.append("settings") },
+        onLock: { actions.append("lock") }, onOpenFolder: { actions.append("folder") })
+    let capture = try #require(controls.buttons["capture"]), record = try #require(controls.buttons["record"])
     #expect(!capture.isEnabled && !record.isEnabled)
-    #expect(window.toolbarStyle == .unified)
-    #expect(capture.isBordered)
-    toolbar.update(.init(running: true, hasFrame: true))
-    #expect(capture.isEnabled && record.isEnabled)
-    for item in [capture, record] {
-        #expect(NSApp.sendAction(try #require(item.action), to: item.target, from: item))
-    }
+    controls.update(.init(running: true, hasFrame: true))
+    capture.performClick(nil); record.performClick(nil)
     #expect(actions == ["capture", "record"])
-    toolbar.update(.init(recording: true, choosingDestination: true))
-    #expect(record.isEnabled && record.label == L10n.text("Stop Recording"))
-    #expect(record.style == .prominent && record.backgroundTintColor == .systemRed)
-    #expect(!capture.isEnabled)
-    toolbar.update(.init(hasFrame: true, finishing: true))
-    #expect(!record.isEnabled && record.label == L10n.text("Saving…"))
-    #expect(record.style == .plain && record.backgroundTintColor == nil)
-    toolbar.update(.init(hasFrame: true, locked: true))
-    #expect(toolbar.items.values.allSatisfy { $0.isEnabled })
-    #expect(toolbar.items["lock"]?.style == .prominent)
-    _ = NSApp.sendAction(try #require(record.action), to: record.target, from: record)
-    #expect(actions.count == 3)
-    toolbar.update(.init(recording: true, locked: true))
-    #expect(record.isEnabled && !capture.isEnabled)
-    toolbar.update(.init(finishing: true, locked: true))
-    #expect(!record.isEnabled && !capture.isEnabled)
+    controls.update(.init(recording: true, choosingDestination: true, locked: true))
+    #expect(record.isEnabled && record.title == L10n.text("Stop Recording"))
+    #expect(record.contentTintColor == .systemRed && !capture.isEnabled)
+    #expect(controls.buttons["lock"]?.state == .on)
+    record.performClick(nil)
+    #expect(actions.last == "record")
+    controls.update(.init(hasFrame: true, finishing: true, locked: true))
+    #expect(!record.isEnabled && record.title == L10n.text("Saving…"))
+    #expect(record.contentTintColor == nil)
+    for key in ["folder", "lock", "reader", "settings"] {
+        let button = try #require(controls.buttons[key])
+        #expect(button.isEnabled)
+        button.performClick(nil)
+        #expect(actions.last == key)
+    }
+    controls.update(.init(hasFrame: true))
+    #expect(controls.buttons.values.allSatisfy { $0.isEnabled })
+    #expect(controls.buttons["lock"]?.state == .off)
 }
 
-@Test @MainActor func toolbarDoesNotEnterCaptureSurfaceAtAnyWindowSize() {
+@Test @MainActor func rightRailAndLanguageControlsStayOutsideCaptureAtAnyWindowSize() throws {
     _ = NSApplication.shared
-    let window = NSWindow(contentRect: CGRect(x: 180, y: 130, width: 800, height: 500),
-                          styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
+    let panel = BarolensPanel(overlayRect: CGRect(x: 180, y: 130, width: 800, height: 500))
+    panel.isReleasedWhenClosed = false
+    defer { panel.close() }
+    let controls = BarolensToolbar(onCapture: {}, onRecord: {})
+    controls.attach(to: panel)
+    let languageBar = BarolensLanguageBarController(model: BarolensModel(), onToggle: {})
+    panel.addTitlebarAccessoryViewController(languageBar)
     let surface = NSView()
-    window.contentView = surface
-    let toolbar = BarolensToolbar(onCapture: {}, onRecord: {})
-    toolbar.attach(to: window)
-    let model = BarolensModel()
-    let languageBar = BarolensLanguageBarController(model: model, onToggle: {})
-    window.addTitlebarAccessoryViewController(languageBar)
+    panel.installBody(surface: surface, size: CGSize(width: 800, height: 500))
+    let body = try #require(panel.bodyPanel), actions = try #require(panel.actionPanel)
     for size in [CGSize(width: 800, height: 500), CGSize(width: 320, height: 240)] {
-        window.setContentSize(size)
-        let rect = BarolensCaptureRegion.screenRect(surface: surface, window: window)
-        #expect(rect.size == size)
-        #expect(abs(rect.minX - window.frame.minX) < 1)
-        #expect(abs(rect.minY - window.frame.minY) < 1)
-        let languageRect = window.convertToScreen(languageBar.view.convert(languageBar.view.bounds, to: nil))
+        panel.resizePair(to: CGRect(x: 180, y: 130, width: size.width, height: size.height + panel.frame.height))
+        let rect = BarolensCaptureRegion.screenRect(surface: surface, window: body)
+        #expect(rect == body.frame && rect.height == size.height && rect.width == size.width - 48)
+        #expect(!rect.intersects(actions.frame) && actions.frame.maxY == body.frame.maxY)
+        let languageRect = panel.convertToScreen(languageBar.view.convert(languageBar.view.bounds, to: nil))
         #expect(languageRect.minY >= rect.maxY - 1)
-        #expect(window.frame.maxY - rect.maxY >= languageBar.view.bounds.height)
         #expect(languageBar.view.bounds.height >= 80)
-        #expect(!surface.subviews.contains { $0 is NSButton })
+        #expect(panel.toolbar == nil && !surface.subviews.contains { $0 is NSButton })
     }
 }
 
-@Test @MainActor func toolbarCaptureSuccessPreservesRecordingAndCaptureAvailability() throws {
-    _ = NSApplication.shared
-    var captures = 0
-    let toolbar = BarolensToolbar(onCapture: { captures += 1 }, onRecord: {})
-    let capture = try #require(toolbar.toolbar(toolbar.toolbar, itemForItemIdentifier: .init("capture"), willBeInsertedIntoToolbar: true))
-    let record = try #require(toolbar.toolbar(toolbar.toolbar, itemForItemIdentifier: .init("record"), willBeInsertedIntoToolbar: true))
+@Test @MainActor func rightRailCaptureSuccessPreservesActionEligibility() throws {
+    let controls = BarolensToolbar(onCapture: {}, onRecord: {})
+    let capture = try #require(controls.buttons["capture"]), record = try #require(controls.buttons["record"])
     let camera = try #require(capture.image?.tiffRepresentation)
-
-    for recordingState in [(false, false), (true, false), (false, true)] {
-        for hasFrame in [false, true] {
-            for choosingDestination in [false, true] {
-                var state = BarolensToolbarState(hasFrame: hasFrame, recording: recordingState.0,
-                                             finishing: recordingState.1, choosingDestination: choosingDestination)
-                toolbar.update(state)
-                let recordEnabled = record.isEnabled
-                let recordLabel = record.label
-                let recordStyle = record.style
-                let recordTint = record.backgroundTintColor
-                state.captureSucceeded = true
-                toolbar.update(state)
-                #expect(capture.label == L10n.text("Image Saved"))
-                #expect(capture.toolTip == L10n.text("Image Saved"))
-                #expect(capture.image?.accessibilityDescription == L10n.text("Image Saved"))
-                #expect(capture.image?.tiffRepresentation != camera)
-                #expect(capture.isEnabled == (hasFrame && !choosingDestination))
-                #expect(record.isEnabled == recordEnabled && record.label == recordLabel)
-                #expect(record.style == recordStyle && record.backgroundTintColor == recordTint)
-                let previousCaptures = captures
-                _ = NSApp.sendAction(try #require(capture.action), to: capture.target, from: capture)
-                #expect(captures == previousCaptures + (capture.isEnabled ? 1 : 0))
+    for recording in [false, true] {
+        for finishing in [false, true] {
+            for hasFrame in [false, true] {
+                for choosingDestination in [false, true] {
+                    var state = BarolensToolbarState(hasFrame: hasFrame, recording: recording, finishing: finishing,
+                        choosingDestination: choosingDestination, locked: true)
+                    controls.update(state)
+                    let recordEnabled = record.isEnabled, title = record.title
+                    state.captureSucceeded = true
+                    controls.update(state)
+                    #expect(capture.title == L10n.text("Image Saved"))
+                    #expect(capture.image?.tiffRepresentation != camera)
+                    #expect(capture.isEnabled == (hasFrame && !choosingDestination))
+                    #expect(record.isEnabled == recordEnabled && record.title == title)
+                    #expect(controls.buttons["folder"]?.isEnabled == true && controls.buttons["lock"]?.isEnabled == true)
+                }
             }
         }
     }
-    toolbar.update(.init(hasFrame: true))
-    #expect(capture.label == L10n.text("Capture"))
-    #expect(capture.image?.accessibilityDescription == L10n.text("Capture"))
-    #expect(capture.image?.tiffRepresentation == camera)
+    controls.update(.init(hasFrame: true))
+    #expect(capture.title == L10n.text("Capture") && capture.image?.tiffRepresentation == camera)
 }
 
-@Test @MainActor func toolbarFolderAlwaysEnabledAndDispatchesAction() throws {
-    _ = NSApplication.shared
-    var opened = 0
-    let toolbar = BarolensToolbar(onCapture: {}, onRecord: {}, onOpenFolder: { opened += 1 })
-    let folder = try #require(toolbar.toolbar(toolbar.toolbar, itemForItemIdentifier: .init("folder"), willBeInsertedIntoToolbar: true))
-    for state in [BarolensToolbarState(), .init(permissionNeeded: true), .init(recording: true),
-                  .init(finishing: true), .init(choosingDestination: true), .init(locked: true),
-                  .init(recording: true, choosingDestination: true, locked: true, captureSucceeded: true)] {
-        toolbar.update(state)
-        #expect(folder.isEnabled)
-        #expect(folder.label == L10n.text("Open Save Folder"))
-        #expect(folder.toolTip == folder.label)
-        #expect(folder.image?.accessibilityDescription == folder.label)
-        let previousOpened = opened
-        #expect(NSApp.sendAction(try #require(folder.action), to: folder.target, from: folder))
-        #expect(opened == previousOpened + 1)
-    }
-}
-
-@Test @MainActor func toolbarFolderYieldsPriorityToRecordingAndLockRelease() throws {
-    _ = NSApplication.shared
-    let toolbar = BarolensToolbar(onCapture: {}, onRecord: {})
-    let identifiers = toolbar.toolbarDefaultItemIdentifiers(toolbar.toolbar)
-    let captureIndex = try #require(identifiers.firstIndex(of: .init("capture")))
-    #expect(identifiers[captureIndex + 1] == .init("folder"))
-    #expect(toolbar.toolbarAllowedItemIdentifiers(toolbar.toolbar) == identifiers)
-    for identifier in identifiers where identifier != .flexibleSpace {
-        _ = toolbar.toolbar(toolbar.toolbar, itemForItemIdentifier: identifier, willBeInsertedIntoToolbar: true)
-    }
-    toolbar.update(.init(recording: true, choosingDestination: true, locked: true, captureSucceeded: true))
-    let folder = try #require(toolbar.items["folder"])
-    let record = try #require(toolbar.items["record"])
-    let lock = try #require(toolbar.items["lock"])
-    #expect(folder.visibilityPriority == .low)
-    #expect(record.visibilityPriority == .high && lock.visibilityPriority == .high)
-    #expect(record.isEnabled && lock.isEnabled)
-    #expect(record.label == L10n.text("Stop Recording"))
-    #expect(lock.label == L10n.text("Turn Off Click-Through"))
-}
-@Test @MainActor func recordingTooltipExplainsUnavailableAndSavingStates() {
+@Test @MainActor func rightRailRecordingTooltipExplainsUnavailableAndSavingStates() {
     let controls = BarolensToolbar(onCapture: {}, onRecord: {})
-    _ = controls.toolbar(controls.toolbar, itemForItemIdentifier: .init("record"), willBeInsertedIntoToolbar: true)
-    controls.update(BarolensToolbarState(hasFrame: false))
-    #expect(controls.items["record"]?.toolTip == L10n.text("Connect the screen to record a video."))
-    controls.update(BarolensToolbarState(finishing: true))
-    #expect(controls.items["record"]?.toolTip == L10n.text("Saving video…"))
-    #expect(controls.items["record"]?.isEnabled == false)
+    #expect(controls.buttons["record"]?.toolTip == L10n.text("Connect the screen to record a video."))
+    controls.update(.init(finishing: true))
+    #expect(controls.buttons["record"]?.toolTip == L10n.text("Saving video…"))
+    #expect(controls.buttons["record"]?.isEnabled == false)
 }

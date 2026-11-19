@@ -1,7 +1,8 @@
 import AppKit
-import ScreenCaptureKit
+@preconcurrency import ScreenCaptureKit
 import CoreMedia
 import CoreImage
+import OSLog
 
 /// Pixel buffers are retained, read-only after delivery from ScreenCaptureKit.
 struct CapturedFrame: @unchecked Sendable {
@@ -38,6 +39,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var regionVersion: UInt64 = 0
     private var requestSerial: UInt64 = 0
     private var frameSerial: UInt64 = 0
+    private let firstFrame = CaptureFirstFrame()
     private(set) var activeLayout: CaptureLayout?
     var onFrame: ((CapturedFrame) -> Void)?
     var onFailure: ((String) -> Void)?
@@ -45,15 +47,36 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     func start(globalRect: CGRect, screen: NSScreen, version: UInt64) async throws {
         requestSerial &+= 1
         let request = requestSerial
+        firstFrame.reset(to: request)
         let old = stream
         stream = nil
         activeLayout = nil
-        try? await old?.stopCapture()
+        await stopStream(old)
         guard request == requestSerial, !Task.isCancelled else { throw CancellationError() }
         guard access.isGranted else { throw CaptureError.permissionRequired }
         regionVersion = version
-        let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        // Retry a timed-out first connection once, without another toggle or permission prompt.
+        for attempt in 0...1 {
+            do {
+                try await connect(globalRect: globalRect, screen: screen, request: request)
+                return
+            } catch {
+                guard request == requestSerial, !Task.isCancelled else { throw CancellationError() }
+                guard error is AsyncStageError, attempt == 0 else { throw error }
+                firstFrame.reset(to: request)
+                Logger(subsystem: "dev.local.barolens", category: "Startup").notice("Retrying first capture frame")
+            }
+        }
+    }
+
+    private func connect(globalRect: CGRect, screen: NSScreen, request: UInt64) async throws {
+        // Keep SDK reference types on MainActor; only the Void completion crosses the deadline.
+        var shared: SCShareableContent?
+        try await AsyncStage.run(timeout: .seconds(8), stage: "captureContent") {
+            shared = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+        }
         guard request == requestSerial, !Task.isCancelled else { throw CancellationError() }
+        guard let content = shared else { throw CaptureError.displayUnavailable }
         guard let screenID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
               let display = content.displays.first(where: { $0.displayID == screenID.uint32Value }) else {
             throw CaptureError.displayUnavailable
@@ -74,21 +97,45 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         try next.addStreamOutput(self, type: .screen, sampleHandlerQueue: .main)
         stream = next
         do {
-            try await next.startCapture()
+            try await AsyncStage.run(timeout: .seconds(8), stage: "captureStart") {
+                try await next.startCapture()
+                if Task.isCancelled {
+                    try? await next.stopCapture()
+                    throw CancellationError()
+                }
+            }
             guard request == requestSerial, !Task.isCancelled else {
-                try? await next.stopCapture()
                 throw CancellationError()
             }
+            try await firstFrame.wait(for: request)
+            guard request == requestSerial, !Task.isCancelled else { throw CancellationError() }
             activeLayout = CaptureLayout(globalRect: globalRect, screen: screen)
-        } catch { if stream === next { stream = nil }; throw error }
+            Logger(subsystem: "dev.local.barolens", category: "Startup")
+                .notice("Capture connected with a complete frame: \(request, privacy: .public)")
+        } catch {
+            if stream === next { stream = nil }
+            if request == requestSerial { firstFrame.reset(to: request) }
+            await stopStream(next)
+            throw error
+        }
     }
 
     func stop() async {
         requestSerial &+= 1
+        firstFrame.reset(to: requestSerial)
         let old = stream
         stream = nil
         activeLayout = nil
-        try? await old?.stopCapture()
+        await stopStream(old)
+    }
+
+    private func stopStream(_ stream: SCStream?) async {
+        guard let stream else { return }
+        // Cleanup must run even when the start/restart task that requested it is cancelled.
+        let cleanup = Task {
+            try? await AsyncStage.run(timeout: .seconds(2), stage: "captureStop") { try await stream.stopCapture() }
+        }
+        await cleanup.value
     }
 
     nonisolated func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
@@ -102,6 +149,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         // The stream output is explicitly registered on DispatchQueue.main.
         MainActor.assumeIsolated {
             guard self.stream.map(ObjectIdentifier.init) == identity else { return }
+            firstFrame.accept(requestSerial)
             frameSerial &+= 1
             onFrame?(CapturedFrame(buffer: delivered.buffer, version: regionVersion, capturedAt: delivered.capturedAt, id: frameSerial))
         }
@@ -114,6 +162,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate {
             guard self.stream.map(ObjectIdentifier.init) == identity else { return }
             self.stream = nil
             self.activeLayout = nil
+            self.firstFrame.reset(to: self.requestSerial)
             self.onFailure?(description)
         }
     }

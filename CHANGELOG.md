@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-beta.11 — build 21
+
+- Move capture, folder, recording, click-through, reader and settings actions from the top toolbar to a separate vertical rail at the right edge. Keep the captured body, action controls and resize strips disjoint; scroll the rail at very small heights.
+- Remove automatic source selection from the overlay, settings and onboarding. Preserve explicit source preferences; migrate first-run/legacy automatic values to an installed OCR-compatible pair or show preparation guidance.
+- Retain the latest valid frame during language preparation and start translation when ready without another frame or toggle. Preserve pending start intent through internal preference reconciliation.
+- Bound capture startup, first-frame delivery and service waits; reject late canceled work, retry a timed-out first capture once, prepare installed translation sessions before requests, and recreate failed sessions.
+- Add delayed/canceled/duplicate-request and right-edge input/layout regressions. Make the Japanese OCR fixture use explicit native fonts at two weights and require the full sentence, retaining all previous assertions.
+
 ## 0.1.0-beta.10 — build 20
 
 - Translate short UI labels using the selected source language when their script is compatible and there is no strong contrary language evidence. Include short Han-only Japanese labels without requiring neighboring prose.

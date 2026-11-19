@@ -15,11 +15,12 @@ struct BarolensToolbarState: Equatable {
     var canToggleRecording: Bool { recording || (!finishing && canCapture) }
 }
 
-/// Window chrome, deliberately outside the capture/render surface.
-@MainActor final class BarolensToolbar: NSObject, NSToolbarDelegate {
-    let toolbar = NSToolbar(identifier: "BarolensActions")
+/// The single vertical action group at the right edge, outside the capture surface.
+@MainActor final class BarolensToolbar: NSObject {
+    static let actionIdentifiers = ["capture", "folder", "record", "lock", "reader", "settings"]
     private(set) var state = BarolensToolbarState()
-    private(set) var items: [String: NSToolbarItem] = [:]
+    private(set) var buttons: [String: NSButton] = [:]
+    private(set) var rail: BarolensActionRail!
     private let onCapture: () -> Void
     private let onRecord: () -> Void
     private let onReader: () -> Void
@@ -35,36 +36,24 @@ struct BarolensToolbarState: Equatable {
         self.onLock = onLock
         self.onOpenFolder = onOpenFolder
         super.init()
-        toolbar.delegate = self
-        toolbar.displayMode = .iconOnly
-        toolbar.allowsUserCustomization = false
+        for identifier in Self.actionIdentifiers {
+            let button = NSButton(title: "", target: self, action: #selector(performAction(_:)))
+            button.identifier = .init(identifier)
+            button.imagePosition = .imageOnly
+            button.bezelStyle = .circular
+            button.setButtonType(.momentaryPushIn)
+            buttons[identifier] = button
+        }
+        rail = BarolensActionRail(buttons: Self.actionIdentifiers.compactMap { buttons[$0] })
+        update(state)
     }
 
-    func attach(to window: NSWindow) {
-        window.toolbarStyle = .unified
+    func attach(to window: BarolensPanel) {
+        window.toolbar = nil
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.toolbar = toolbar
+        window.installActionRail(rail)
         update(state)
-    }
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.init("capture"), .init("folder"), .init("record"), .flexibleSpace, .init("lock"), .init("reader"), .init("settings")]
-    }
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { toolbarDefaultItemIdentifiers(toolbar) }
-    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        guard ["capture", "folder", "record", "lock", "reader", "settings"].contains(identifier.rawValue) else { return nil }
-        let item = NSToolbarItem(itemIdentifier: identifier)
-        item.target = self; item.action = #selector(performAction(_:))
-        item.autovalidates = false
-        item.isBordered = true
-        switch identifier.rawValue {
-        case "record", "lock": item.visibilityPriority = .high
-        case "folder": item.visibilityPriority = .low
-        default: item.visibilityPriority = .standard
-        }
-        items[identifier.rawValue] = item
-        update(state)
-        return item
     }
     func update(_ state: BarolensToolbarState) {
         self.state = state
@@ -83,22 +72,22 @@ struct BarolensToolbarState: Equatable {
                   help: L10n.text("Read and copy full translations. ⌘T"))
         configure("settings", label: L10n.text("Settings"), symbol: "gearshape", enabled: true,
                   help: L10n.text("Set languages and appearance in a separate window. ⌘,"))
-        items["record"]?.style = state.recording ? .prominent : .plain
-        items["record"]?.backgroundTintColor = state.recording ? .systemRed : nil
+        buttons["record"]?.contentTintColor = state.recording ? .systemRed : nil
         configure("lock", label: state.locked ? L10n.text("Turn Off Click-Through") : L10n.text("Pass Through Clicks and Scrolling"), symbol: state.locked ? "cursorarrow.rays" : "cursorarrow", enabled: true,
                   help: L10n.text("Pass Through Clicks and Scrolling"))
-        items["lock"]?.style = state.locked ? .prominent : .plain
+        buttons["lock"]?.state = state.locked ? .on : .off
     }
     private func configure(_ key: String, label: String, symbol: String, enabled: Bool, help: String) {
-        guard let item = items[key] else { return }
-        item.label = label
+        guard let item = buttons[key] else { return }
+        item.title = label
         item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
         item.isEnabled = enabled
         item.toolTip = help
+        item.setAccessibilityLabel(label)
     }
-    @objc private func performAction(_ item: NSToolbarItem) {
+    @objc private func performAction(_ item: NSButton) {
         guard item.isEnabled else { return }
-        switch item.itemIdentifier.rawValue {
+        switch item.identifier?.rawValue {
         case "capture": onCapture()
         case "folder": onOpenFolder()
         case "record": onRecord()

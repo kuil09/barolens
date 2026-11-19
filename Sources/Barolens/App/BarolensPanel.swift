@@ -15,6 +15,7 @@ import AppKit
     var recordingGeometryUnchanged: Bool { recordingGeometryLocked && recordedPairFrame == pairFrame }
     private var geometryBeforeRecording: (movable: Bool, resizable: Bool, bodyResizable: Bool)?
     private(set) var bodyPanel: BarolensBodyPanel?
+    private(set) var actionPanel: BarolensActionPanel?
     private(set) var resizePanels: [BarolensResizePanel] = []
     private(set) var edgeResizing = false
     private(set) var synchronizingBody = false
@@ -25,6 +26,7 @@ import AppKit
     override var canBecomeKey: Bool { !interactionSuspended }
     override var canBecomeMain: Bool { false }
     var pairFrame: CGRect { bodyPanel.map { frame.union($0.frame) } ?? frame }
+    private var actionWidth: CGFloat { actionPanel == nil ? 0 : BarolensActionRail.width + BarolensActionRail.gap }
 
     convenience init(overlayRect: CGRect) {
         self.init(contentRect: overlayRect, styleMask: [.titled, .closable, .resizable, .miniaturizable], backing: .buffered, defer: false)
@@ -43,10 +45,22 @@ import AppKit
         body.hasShadow = false; body.level = level
         body.collectionBehavior = collectionBehavior
         body.isExcludedFromWindowsMenu = true; body.tabbingMode = .disallowed
-        body.contentMinSize = CGSize(width: 320, height: 240)
+        body.contentMinSize = CGSize(width: 320 - actionWidth, height: 240)
         body.contentView = surface; body.delegate = self
         bodyPanel = body
         resizePanels = BarolensResizeSide.allCases.map { BarolensResizePanel(side: $0, owner: self) }
+        synchronizeBody()
+    }
+    func installActionRail(_ view: BarolensActionRail) {
+        let actions = actionPanel ?? BarolensActionPanel(contentRect: .zero,
+            styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        actions.isReleasedWhenClosed = false; actions.hidesOnDeactivate = false
+        actions.isFloatingPanel = true; actions.isOpaque = false; actions.backgroundColor = .clear
+        actions.hasShadow = false; actions.level = level; actions.collectionBehavior = collectionBehavior
+        actions.isExcludedFromWindowsMenu = true; actions.tabbingMode = .disallowed
+        actions.ignoresMouseEvents = false; actions.contentView = view
+        actionPanel = actions
+        bodyPanel?.contentMinSize.width = 320 - actionWidth
         synchronizeBody()
     }
     func setBodyClickThrough(_ enabled: Bool) {
@@ -80,8 +94,14 @@ import AppKit
         guard let bodyPanel, !synchronizingBody else { return }
         synchronizingBody = true
         bodyPanel.setFrame(CGRect(x: frame.minX, y: frame.minY - bodyHeight,
-            width: frame.width, height: bodyHeight), display: true)
+            width: max(1, frame.width - actionWidth), height: bodyHeight), display: true)
         bodyPanel.level = level
+        if let actionPanel {
+            let height = min(bodyHeight, BarolensActionRail.preferredHeight)
+            actionPanel.setFrame(CGRect(x: bodyPanel.frame.maxX + BarolensActionRail.gap,
+                y: bodyPanel.frame.maxY - height, width: BarolensActionRail.width, height: height), display: true)
+            actionPanel.contentView?.layoutSubtreeIfNeeded()
+        }
         synchronizingBody = false
         synchronizeEdges()
     }
@@ -117,13 +137,14 @@ import AppKit
         (bodyPanel?.contentView as? BarolensSurface)?.overlay.dismissPopover()
         resizePanels.forEach { $0.orderOut(sender) }
         bodyPanel?.orderOut(sender)
+        actionPanel?.orderOut(sender)
     }
     override func setFrame(_ frameRect: NSRect, display flag: Bool) {
         super.setFrame(frameRect, display: flag)
         synchronizeBody()
     }
     override var level: NSWindow.Level {
-        didSet { bodyPanel?.level = level; resizePanels.forEach { $0.level = level } }
+        didSet { bodyPanel?.level = level; actionPanel?.level = level; resizePanels.forEach { $0.level = level } }
     }
     override func orderFrontRegardless() {
         guard !interactionSuspended else { return }
@@ -136,6 +157,10 @@ import AppKit
         // Keep chrome as the frontmost accessible control window, not the
         // non-key body. The rectangles are disjoint so no content is occluded.
         super.orderFrontRegardless()
+        if let actionPanel {
+            if actionPanel.parent !== self { addChildWindow(actionPanel, ordered: .above) }
+            actionPanel.orderFrontRegardless()
+        }
         for panel in resizePanels {
             if panel.parent !== self { addChildWindow(panel, ordered: .above) }
             panel.orderFrontRegardless()
@@ -179,9 +204,9 @@ import AppKit
         synchronizingBody = true
         bodyHeight = bodyPanel.frame.height
         super.setFrame(CGRect(x: bodyPanel.frame.minX, y: bodyPanel.frame.maxY,
-            width: bodyPanel.frame.width, height: frame.height), display: true)
+            width: bodyPanel.frame.width + actionWidth, height: frame.height), display: true)
         synchronizingBody = false
-        synchronizeEdges()
+        synchronizeBody()
     }
     func windowDidEndLiveResize(_ notification: Notification) { onBodyArrangement?(true) }
 }

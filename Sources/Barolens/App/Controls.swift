@@ -80,11 +80,7 @@ struct BarolensControls: View {
                 }
             }
             Section {
-                Picker(L10n.text("Source"), selection: $model.source) {
-                    Text(L10n.text("Auto Detect")).tag(nil as BarolensLanguage?)
-                    Divider()
-                    ForEach(model.selectableSources) { Text($0.title).tag(Optional($0)) }
-                }.disabled(languages.checkingInstallation || languages.loading || model.selectableSources.isEmpty)
+                BarolensSourcePicker(model: model, catalog: languages)
                 Picker(L10n.text("Target"), selection: $model.targetPreference) {
                     Text(languages.installedTargets.isEmpty ? L10n.text("No Installed Languages") : L10n.text("Use macOS Language (%1$@)", String(describing: model.systemTarget.title))).tag(nil as BarolensLanguage?)
                     Divider()
@@ -107,6 +103,8 @@ struct BarolensControls: View {
                 } else if let source = model.source, let route = languages.route(from: source, to: model.target) {
                     Label(route.status == .installed ? L10n.text("The selected languages are ready") : L10n.text("Check readiness in System Language Download"),
                           systemImage: route.status == .installed ? "checkmark.circle" : "arrow.down.circle")
+                } else if !model.canTranslate {
+                    Text(L10n.text("Choose an installed source language or prepare the selected language pack.")).foregroundStyle(.secondary)
                 } else {
                     Text(L10n.text("Ready for %1$@: %2$@ source languages", String(describing: model.target.title), String(describing: languages.sourceLanguages.filter { languages.route(from: $0, to: model.target)?.status == .installed }.count)))
                         .foregroundStyle(.secondary)

@@ -6,11 +6,11 @@
 
 `BarolensAuxiliaryWindows` owns help, reader, and language-guide windows. Reader/help content is reused; a closed language guide releases its content and subscriptions. Creating a window does not present it. Explicit presentation restores minimized windows. The reader takes a snapshot only when newly opened, not on ordinary focus return. Onboarding and permission windows remain in the delegate's security flow.
 
-`BarolensToolbarState` supplies the shared menu/toolbar capture and recording eligibility. A running recording can always be stopped, even without a current capture frame. Success feedback never disables another screenshot.
+`BarolensToolbarState` supplies the shared menu/right-rail capture and recording eligibility. A running recording can always be stopped, even without a current capture frame. Success feedback never disables another screenshot.
 
 ## Context, validity, and reading
 
-ScreenCaptureKit updates the original surface independently of OCR/translation. OCR retains physical source lines and coordinates, groups wrapped prose, and classifies its language independently of the selected source. Explicit-source mode translates only confidently matching paragraphs; ambiguous/mixed text remains original. Auto mode skips the target language.
+ScreenCaptureKit updates the original surface independently of OCR/translation. OCR retains physical source lines and coordinates, groups wrapped prose, and classifies its language independently of the selected source. Explicit-source mode translates only confidently matching paragraphs; ambiguous/mixed text remains original. The UI requires an explicit installed OCR source; unresolved source configuration cannot enable automatic translation.
 
 One paragraph maps to one translation request and conservative display rectangle. Apple Translation request identifiers preserve correspondence but do not provide screen coordinates, word alignment, or a separate context-only channel. Grid boundaries must not split paragraph context; batch neighbors are not assumed to share semantic context.
 
@@ -30,11 +30,13 @@ These are resource/scheduling limits, not latency or total-process-memory guaran
 
 ## Window and security boundaries
 
-The header, body, and narrow resize strips are separate AppKit input regions. Only the body uses `ignoresMouseEvents`; header controls and exterior resize edges remain interactive. No event tap, event reinjection, or accessibility permission is required. Window flags alone do not prove physical input forwarding.
+The header, body, right-edge action rail, and narrow resize strips are separate AppKit input regions. The rail occupies 48 points of the outer width (44-point controls plus a 4-point gap), outside the captured body. Only the body uses `ignoresMouseEvents`; header controls, right-edge actions and exterior resize edges remain interactive. No event tap, event reinjection, or accessibility permission is required. Window flags alone do not prove physical input forwarding.
 
 Capture uses the body rectangle and excludes the Barolens application. Export composition excludes toolbar, resize markers, popovers, feedback, and the red recording outline. Recording locks geometry. Close/minimize/sleep and actual capture invalidation retain their stop/finalization policies.
 
 Ordinary System Settings visits do not trigger permission handoff. Only Barolens's explicit screen-access action stops work and hides all overlay panels. Returning shows the appropriate guide without automatically restarting capture or recording.
+
+Initial capture completion requires the first complete frame, including frames delivered before the start callback. The model retains one valid frame across language preparation. Service awaits have cancellation/deadline boundaries; late retired results cannot publish into the current generation. A canceled framework call may still finish internally: deadlines release the current caller, not forcibly terminate OS services. Installed translation sessions share preparation, and failed sessions are evicted before retry.
 
 ## Recording
 

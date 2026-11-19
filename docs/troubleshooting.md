@@ -33,7 +33,7 @@ Checking is not missing: an explicit start can wait for a check without opening 
 
 ## Text is absent, wrong, stale, or truncated
 
-Confirm translation is running and a frame has arrived; try larger horizontal synthetic text and different source/target languages. An explicit source filters recognized paragraphs: it does not force ambiguous names, short words, numbers, mixed-language text, or other languages into that selection. Auto Detect can help with a multilingual page, but uncertain text may still remain original.
+Confirm translation is running and a frame has arrived; try larger horizontal synthetic text and different source/target languages. An explicit source filters recognized paragraphs: it does not force ambiguous names, short words, numbers, mixed-language text, or other languages into that selection. Choose the explicit source matching the text. Legacy automatic values are migrated only to valid installed pairs; uncertain text may still remain original.
 
 Changing text temporarily hides the affected overlay and source mask while preserving unrelated valid translations. The **번역 전문** reader deliberately stays fixed; choose **새 번역 반영** for updates and heed **이전 번역 / 이전 화면의 번역** labels. To read an overlay's truncated translation, turn click-through off and click it, or use Command-Shift-T. This does not recover source text the underlying app never displayed.
 
@@ -41,7 +41,7 @@ For stale results, report a minimal move/resize/language-change sequence. Multip
 
 ## Click-through and resize controls
 
-Only the overlay body passes clicks, drags, and scrolling through. Toolbar actions must remain usable, including unlocking and recording stop. Resize edges work except during recording, when movement, resizing and zoom are intentionally locked. Use the toolbar cursor button, menu-bar item, or Command-K while Barolens is active to unlock body input. If the header also passes input through or a resize panel is left behind, that is not intended behavior: record the build and move/minimize/restore sequence. Panel tests alone do not establish real cross-app input delivery.
+Only the overlay body passes clicks, drags, and scrolling through. The right-edge actions must remain usable, including unlocking and recording stop. Resize edges work except during recording, when movement, resizing and zoom are intentionally locked. Use the toolbar cursor button, menu-bar item, or Command-K while Barolens is active to unlock body input. If the header also passes input through or a resize panel is left behind, that is not intended behavior: record the build and move/minimize/restore sequence. Panel tests alone do not establish real cross-app input delivery.
 
 ## An image or video cannot be saved
 

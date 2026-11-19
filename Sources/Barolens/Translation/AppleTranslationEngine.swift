@@ -63,8 +63,13 @@ struct TranslationPair: Hashable {
 
 @MainActor
 protocol TranslationBatchSession: AnyObject {
+    func prepare() async throws
     func translate(_ texts: [String]) async throws -> [String]
     func cancel()
+}
+
+extension TranslationBatchSession {
+    func prepare() async throws {}
 }
 
 @MainActor
@@ -73,6 +78,12 @@ private final class InstalledTranslationSession: TranslationBatchSession {
     init(pair: TranslationPair, strategy: TranslationCacheStrategy) {
         session = TranslationSession(installedSource: pair.source.locale, target: pair.target.locale,
                                      preferredStrategy: strategy.appleStrategy)
+    }
+
+    func prepare() async throws {
+        // installedSource sessions cannot request downloads or display download UI.
+        // The installed route is checked before creating this session.
+        try await session.prepareTranslation()
     }
 
     func translate(_ texts: [String]) async throws -> [String] {
@@ -104,7 +115,18 @@ final class AppleTranslationEngine: TranslationEngine {
     private let resolve: RouteResolver
     private let batchSize: Int
     private struct SessionKey: Hashable { let pair: TranslationPair; let strategy: TranslationCacheStrategy }
-    private var sessions: [SessionKey: any TranslationBatchSession] = [:]
+    @MainActor private final class SessionState {
+        let value: any TranslationBatchSession
+        private var preparation: Task<Void, any Error>?
+        init(_ value: any TranslationBatchSession) { self.value = value }
+        func prepare() async throws {
+            if preparation == nil { preparation = Task { try await value.prepare() } }
+            let task = preparation!
+            try await AsyncStage.run(stage: "sessionPreparation") { try await task.value }
+        }
+        func cancel() { preparation?.cancel(); value.cancel() }
+    }
+    private var sessions: [SessionKey: SessionState] = [:]
     private var cache = TranslationMemoryCache()
     private var epoch: UInt64 = 0
 
@@ -168,14 +190,28 @@ final class AppleTranslationEngine: TranslationEngine {
         for pair in pairs {
             let strategy = strategies[pair]!
             let sessionKey = SessionKey(pair: pair, strategy: strategy)
-            let session: any TranslationBatchSession
-            if let existing = sessions[sessionKey] { session = existing }
-            else { session = factory(pair, strategy); sessions[sessionKey] = session }
+            let state: SessionState
+            if let existing = sessions[sessionKey] { state = existing }
+            else { state = SessionState(factory(pair, strategy)); sessions[sessionKey] = state }
+            do { try await state.prepare(); try validate(started) }
+            catch {
+                if sessions[sessionKey] === state { sessions.removeValue(forKey: sessionKey) }
+                state.cancel(); throw error
+            }
+            let session = state.value
             let indices = groups[pair]!
             for offset in stride(from: 0, to: indices.count, by: batchSize) {
                 try validate(started)
                 let batch = Array(indices[offset..<min(offset + batchSize, indices.count)])
-                let translated = try await session.translate(batch.map { inputs[$0].text })
+                let translated: [String]
+                do {
+                    translated = try await session.translate(batch.map { inputs[$0].text })
+                } catch {
+                    // A failed initial session is not a usable prepared session for the next retry.
+                    if sessions[sessionKey] === state { sessions.removeValue(forKey: sessionKey) }
+                    state.cancel()
+                    throw error
+                }
                 try validate(started)
                 guard translated.count == batch.count else { throw Failure.invalidResponse }
                 for (index, text) in zip(batch, translated) {

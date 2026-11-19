@@ -496,7 +496,8 @@ final class BarolensAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
                 let contentRect = BarolensCaptureRegion.screenRect(surface: surface, window: surface.window ?? overlay)
                 try await model.capture.start(globalRect: contentRect, screen: screen, version: version)
                 guard model.regionVersion == version else { return }
-                model.status = L10n.text("Screen connected · Waiting for text")
+                // The first complete frame sets the connected status. Never overwrite
+                // OCR/translation progress that may already have arrived during startup.
             } catch is CancellationError {} catch {
                 guard model.regionVersion == version else { return }
                 model.suspend()

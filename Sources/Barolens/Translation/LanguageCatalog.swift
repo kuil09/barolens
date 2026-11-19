@@ -66,7 +66,12 @@ struct TranslationRoute: Equatable, Sendable {
         let token = UUID(); loadGeneration = token
         checkingInstallation = true
         defer { if loadGeneration == token { checkingInstallation = false } }
-        let fetched = await languageLoader()
+        let fetched: [BarolensLanguage]
+        do { fetched = try await AsyncStage.run(stage: "supportedLanguages", operation: languageLoader) }
+        catch {
+            if loadGeneration == token, !Task.isCancelled { self.error = error.localizedDescription }
+            return
+        }
         guard loadGeneration == token, !Task.isCancelled else { return }
         guard !fetched.isEmpty else {
             error = L10n.text("Could not check translation languages. Try again.")
@@ -84,7 +89,12 @@ struct TranslationRoute: Equatable, Sendable {
         var installed: [BarolensLanguage] = []
         for target in fetched {
             for source in sourceLanguages where !source.isSameLanguage(as: target) {
-                let route = await routeResolver(.init(source: source, target: target))
+                let route: TranslationRoute
+                do { route = try await checkedRoute(.init(source: source, target: target)) }
+                catch {
+                    if loadGeneration == token, !Task.isCancelled { self.error = error.localizedDescription }
+                    return
+                }
                 guard loadGeneration == token, !Task.isCancelled else { return }
                 if route.status == .installed { installed.append(target); break }
             }
@@ -99,12 +109,18 @@ struct TranslationRoute: Equatable, Sendable {
     func refresh(target: BarolensLanguage) async {
         let token = UUID(); generation = token
         loading = true
+        error = nil
         if checkedTarget != target { routes = [:] }
         checkedTarget = target
         defer { if generation == token { loading = false } }
         var result: [BarolensLanguage: TranslationRoute] = [:]
         for language in languages where !language.isSameLanguage(as: target) {
-            let route = await routeResolver(TranslationPair(source: language, target: target))
+            let route: TranslationRoute
+            do { route = try await checkedRoute(.init(source: language, target: target)) }
+            catch {
+                if generation == token, !Task.isCancelled { self.error = error.localizedDescription }
+                return
+            }
             guard generation == token, !Task.isCancelled else { return }
             result[language] = route
         }
@@ -113,5 +129,9 @@ struct TranslationRoute: Equatable, Sendable {
     }
     func route(from source: BarolensLanguage, to target: BarolensLanguage) -> TranslationRoute? {
         checkedTarget == target ? routes[source] : nil
+    }
+    private func checkedRoute(_ pair: TranslationPair) async throws -> TranslationRoute {
+        let resolve = routeResolver
+        return try await AsyncStage.run(stage: "languageRoute") { await resolve(pair) }
     }
 }

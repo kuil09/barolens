@@ -26,7 +26,7 @@ struct BarolensLanguageBar: View {
                                 .contentShape(Rectangle())
                         }
                         .accessibilityLabel(L10n.text("Swap Source and Target"))
-                        .help(model.source == nil ? L10n.text("Choose a source language instead of Auto Detect to swap languages.") : L10n.text("Swap the languages. The new source must support OCR."))
+                        .help(L10n.text("Swap the languages. The new source must support OCR."))
                         .disabled(!model.canSwapLanguages)
                         .buttonStyle(.borderless)
                         targetPicker.frame(width: layout.fieldWidth, height: 24)
@@ -68,11 +68,7 @@ struct BarolensLanguageBar: View {
     }
 
     private var sourcePicker: some View {
-        Picker(L10n.text("Source"), selection: $model.source) {
-            Text(L10n.text("Auto Detect")).tag(nil as BarolensLanguage?)
-            ForEach(model.selectableSources) { Text($0.title).tag(Optional($0)) }
-        }.labelsHidden().pickerStyle(.menu)
-            .disabled(catalog.checkingInstallation || catalog.loading || model.selectableSources.isEmpty)
+        BarolensSourcePicker(model: model, catalog: catalog).labelsHidden().pickerStyle(.menu)
     }
 
     private var targetPicker: some View {
@@ -80,6 +76,20 @@ struct BarolensLanguageBar: View {
             Text(catalog.installedTargets.isEmpty ? L10n.text("No Installed Languages") : L10n.text("System · %1$@", String(describing: model.systemTarget.title))).tag(nil as BarolensLanguage?)
             ForEach(catalog.installedTargets) { Text($0.title).tag(Optional($0)) }
         }.labelsHidden().pickerStyle(.menu).disabled(catalog.checkingInstallation || catalog.installedTargets.isEmpty)
+    }
+}
+
+/// All entry points share the same explicit source choices, including setup and Settings.
+struct BarolensSourcePicker: View {
+    @ObservedObject var model: BarolensModel
+    @ObservedObject var catalog: LanguageCatalog
+    var body: some View {
+        Picker(L10n.text("Source"), selection: $model.source) {
+            if model.source == nil { Text(L10n.text("Choose a source language")).tag(nil as BarolensLanguage?) }
+            ForEach(model.sourceChoices) { language in
+                Text(language.title).tag(Optional(language)).disabled(!model.isSourceInstalled(language))
+            }
+        }.disabled(catalog.checkingInstallation || catalog.loading || model.selectableSources.isEmpty)
     }
 }
 

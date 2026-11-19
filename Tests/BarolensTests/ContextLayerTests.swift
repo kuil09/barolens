@@ -76,7 +76,8 @@ import Testing
     #expect(body.frame.minX == panel.frame.minX && body.frame.maxY == panel.frame.minY)
     var next = panel.frame; next.size.width = 600
     panel.setFrame(next, display: true)
-    #expect(body.frame.width == 600)
+    #expect(body.frame.width == 552) // 48pt is reserved for the right-side actions.
+    #expect(panel.actionPanel?.frame.maxX == panel.frame.maxX)
     #expect(BarolensCaptureRegion.screenRect(surface: surface, window: body) == body.frame)
     handoff.begin(window: panel) {}
     #expect(!panel.isVisible && !body.isVisible && !panel.canBecomeKey)
@@ -98,14 +99,20 @@ import Testing
     behind.backgroundColor = .white
     let panel = BarolensPanel(overlayRect: CGRect(x: 250, y: 250, width: 400, height: 300))
     panel.isReleasedWhenClosed = false; panel.level = .floating
+    let controls = BarolensToolbar(onCapture: {}, onRecord: {})
+    controls.attach(to: panel)
     panel.installBody(surface: NSView(), size: CGSize(width: 400, height: 300))
     let body = try #require(panel.bodyPanel)
+    let actions = try #require(panel.actionPanel)
+    let rightEdge = try #require(panel.resizePanels.first { $0.side == .right })
     defer { panel.orderOut(nil); behind.orderOut(nil) }
     NSApp.setActivationPolicy(.accessory)
     behind.makeKeyAndOrderFront(nil); NSApp.activate()
     try await Task.sleep(for: .milliseconds(200))
     let bodyPoint = CGPoint(x: body.frame.midX, y: body.frame.midY)
     let headerPoint = CGPoint(x: panel.frame.midX, y: panel.frame.midY)
+    let actionPoint = CGPoint(x: actions.frame.midX, y: actions.frame.midY)
+    let resizePoint = CGPoint(x: rightEdge.frame.midX, y: rightEdge.frame.midY)
     // Establish the control window before attributing an unexpected hit to Barolens.
     try #require(NSWindow.windowNumber(at: bodyPoint, belowWindowWithWindowNumber: 0) == behind.windowNumber)
     panel.orderFrontRegardless()
@@ -113,6 +120,8 @@ import Testing
     panel.setBodyClickThrough(true)
     #expect(NSWindow.windowNumber(at: bodyPoint, belowWindowWithWindowNumber: 0) == behind.windowNumber)
     #expect(NSWindow.windowNumber(at: headerPoint, belowWindowWithWindowNumber: 0) == panel.windowNumber)
+    #expect(NSWindow.windowNumber(at: actionPoint, belowWindowWithWindowNumber: 0) == actions.windowNumber)
+    #expect(NSWindow.windowNumber(at: resizePoint, belowWindowWithWindowNumber: 0) == rightEdge.windowNumber)
     panel.setBodyClickThrough(false)
     #expect(NSWindow.windowNumber(at: bodyPoint, belowWindowWithWindowNumber: 0) == body.windowNumber)
 }

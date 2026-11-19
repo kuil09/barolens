@@ -292,3 +292,9 @@
 "Read text does not match the selected source language." = "Read text does not match the selected source language.";
 "Read text is already in the target language." = "Read text is already in the target language.";
 "Translated areas: %1$@ · %2$@ areas need a source language" = "Translated areas: %1$@ · %2$@ areas need a source language";
+
+"Choose a source language" = "Choose a source language";
+
+"The operation took too long. Please try again." = "The operation took too long. Please try again.";
+
+"Choose an installed source language or prepare the selected language pack." = "Choose an installed source language or prepare the selected language pack.";

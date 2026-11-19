@@ -77,6 +77,7 @@ import Combine
     private let recognize: Recognizer
     private let now: @MainActor () -> Double
     private let automatic: Bool
+    private let serviceTimeout: Duration
     private var latest: CIImage?
     private var context: Context?
     private var records: [Record] = []
@@ -122,9 +123,10 @@ import Combine
 
     init(translator: any TranslationEngine, analysis: FrameAnalysis = FrameAnalysis(),
          automatic: Bool = true, now: @escaping @MainActor () -> Double = { ProcessInfo.processInfo.systemUptime },
-         recognize: Recognizer? = nil, scheduleWake: WakeScheduler? = nil) {
+         recognize: Recognizer? = nil, scheduleWake: WakeScheduler? = nil, serviceTimeout: Duration = .seconds(15)) {
         self.translator = translator; self.analysis = analysis
         self.automatic = automatic; self.now = now
+        self.serviceTimeout = serviceTimeout
         self.scheduleWake = scheduleWake ?? { delay, action in
             let task = Task { @MainActor in
                 do { try await Task.sleep(for: .seconds(delay)) } catch { return }
@@ -290,7 +292,10 @@ import Combine
             diagnostics.ocrProcessingTime = max(diagnostics.ocrProcessingTime, now() - observedAt)
         }
         do {
-            let blocks = try await recognize(cg, context.source, context.languages)
+            let recognize = self.recognize
+            let blocks = try await AsyncStage.run(timeout: serviceTimeout, stage: "ocr") {
+                try await recognize(cg, context.source, context.languages)
+            }
             guard self.hardGeneration == hardGeneration, self.context == context, !Task.isCancelled else { return true }
             if recordingActive, let stamp {
                 let id = UUID()
@@ -385,7 +390,11 @@ import Combine
             diagnostics.translationProcessingTime = max(diagnostics.translationProcessingTime, now() - translationStartedAt)
         }
         do {
-            guard await translator.availability(source: language, target: context.target) == .installed else { throw PipelineError.languageNotReady }
+            let translator = self.translator
+            let available = try await AsyncStage.run(timeout: serviceTimeout, stage: "availability") {
+                await translator.availability(source: language, target: context.target)
+            }
+            guard available == .installed else { throw PipelineError.languageNotReady }
             guard self.hardGeneration == hardGeneration, self.context == context, !Task.isCancelled else { return true }
             if epoch != scheduler.epoch && recordingRequests.isEmpty { return true }
             let current = batch.filter { record in
@@ -398,9 +407,12 @@ import Combine
             guard !current.isEmpty else { return true }
             diagnostics.translationBatches += 1
             onStatus?(L10n.text("Translating areas: %1$@…", String(describing: current.count)))
-            let outputs = try await translator.translate(current.map {
+            let inputs = current.map {
                 TranslationInput(id: $0.block.id, text: $0.block.translationText, source: language, target: context.target)
-            })
+            }
+            let outputs = try await AsyncStage.run(timeout: serviceTimeout, stage: "translation") {
+                try await translator.translate(inputs)
+            }
             if self.hardGeneration == hardGeneration, self.context == context, !Task.isCancelled, recordingActive {
                 for request in recordingRequests {
                     guard let record = current.first(where: { sameParagraph($0.block, request.block) }),
@@ -434,6 +446,7 @@ import Combine
             }
         } catch {
             if epoch == scheduler.epoch, !Task.isCancelled {
+                if error is AsyncStageError { translator.cancel() }
                 // Missing packs need user action, not a background polling loop.
                 if !(error is PipelineError) {
                     for record in batch { scheduler.retry(scheduler.cells(intersecting: record.block.bounds), at: now()) }
@@ -460,12 +473,19 @@ import Combine
             diagnostics.translationProcessingTime = max(diagnostics.translationProcessingTime, now() - started)
         }
         do {
-            guard await translator.availability(source: language, target: context.target) == .installed else { return true }
+            let translator = self.translator
+            let available = try await AsyncStage.run(timeout: serviceTimeout, stage: "recordingAvailability") {
+                await translator.availability(source: language, target: context.target)
+            }
+            guard available == .installed else { return true }
             guard generation == hardGeneration, recordingActive, !Task.isCancelled else { return true }
             diagnostics.translationBatches += 1
-            let outputs = try await translator.translate(batch.map {
+            let inputs = batch.map {
                 .init(id: $0.block.id, text: $0.block.translationText, source: language, target: context.target)
-            })
+            } as [TranslationInput]
+            let outputs = try await AsyncStage.run(timeout: serviceTimeout, stage: "recordingTranslation") {
+                try await translator.translate(inputs)
+            }
             guard generation == hardGeneration, self.context == context, recordingActive, !Task.isCancelled else { return true }
             for request in batch {
                 guard let output = outputs.first(where: { $0.id == request.block.id }) else { continue }
@@ -473,6 +493,7 @@ import Combine
             }
         } catch {
             // The next observation may retry. Do not spin or retain obsolete input batches.
+            if error is AsyncStageError { translator.cancel() }
         }
         return true
     }

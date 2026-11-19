@@ -63,7 +63,7 @@ import Testing
     #expect(catalog.installedSources(to: .english).isEmpty)
 }
 
-@Test @MainActor func removedModelsClearSavedSelectionAndDisableTranslation() async throws {
+@Test @MainActor func removedModelsPreserveExplicitSourceAndDisableTranslation() async throws {
     let installed = MutableFlag()
     let catalog = LanguageCatalog(languageLoader: { [.english, .korean, .japanese] },
         recognitionLoader: { ["en-US", "ko-KR", "ja-JP"] }, routeResolver: { _ in
@@ -80,9 +80,9 @@ import Testing
     model.begin()
     await model.refreshLanguages()
     #expect(!model.canTranslate && !model.running)
-    #expect(model.source == nil && model.targetPreference == nil)
+    #expect(model.source == .korean && model.targetPreference == nil)
     #expect(catalog.installedTargets.isEmpty && model.selectableSources.isEmpty)
-    #expect(defaults.string(forKey: "target") == nil && defaults.string(forKey: "source") == nil)
+    #expect(defaults.string(forKey: "target") == nil && defaults.string(forKey: "source") == "ko")
 }
 
 @Test @MainActor func staleInstallationCensusCannotReplaceNewerResults() async {

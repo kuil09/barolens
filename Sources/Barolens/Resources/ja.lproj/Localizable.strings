@@ -292,3 +292,9 @@
 "Read text does not match the selected source language." = "認識した文字は選択した原文の言語と異なります。";
 "Read text is already in the target language." = "認識した文字はすでに翻訳先の言語です。";
 "Translated areas: %1$@ · %2$@ areas need a source language" = "%1$@個の領域を翻訳済み · %2$@個は原文の言語選択が必要";
+
+"Choose a source language" = "原文の言語を選んでください";
+
+"The operation took too long. Please try again." = "処理に時間がかかりすぎています。もう一度お試しください。";
+
+"Choose an installed source language or prepare the selected language pack." = "インストール済みの原文言語を選ぶか、選択した言語パックを準備してください。";

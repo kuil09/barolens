@@ -110,10 +110,7 @@ struct BarolensOnboardingView: View {
                     .tag(nil as BarolensLanguage?)
                 ForEach(catalog.installedTargets) { Text($0.title).tag(Optional($0)) }
             }.disabled(catalog.checkingInstallation || catalog.installedTargets.isEmpty)
-            Picker(L10n.text("Source"), selection: $model.source) {
-                Text(L10n.text("Auto Detect")).tag(nil as BarolensLanguage?)
-                ForEach(model.selectableSources) { Text($0.title).tag(Optional($0)) }
-            }.disabled(catalog.checkingInstallation || catalog.loading || model.selectableSources.isEmpty)
+            BarolensSourcePicker(model: model, catalog: catalog)
             if catalog.checkingInstallation || catalog.loading {
                 ProgressView(L10n.text("Checking installed languages…")).controlSize(.small)
             } else if !model.canTranslate {
