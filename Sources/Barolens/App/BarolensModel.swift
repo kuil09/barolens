@@ -87,9 +87,11 @@ final class BarolensModel: ObservableObject {
             self?.translationSamples.append(elapsed); self?.updateMetrics()
         }
         capture.onFrame = { [weak self] in self?.receive($0) }
-        capture.onFailure = { [weak self] error in
-            self?.running = false; self?.invalidate(); self?.hasFrame = false; self?.surface?.canvas.clear()
-            self?.status = L10n.text("Capture stopped: %1$@ · Start again to retry.", String(describing: error))
+        capture.onFailure = { [weak self] error, version in
+            // The old stream can fail during the debounce before a move connects its replacement.
+            guard let self, running, version == regionVersion else { return }
+            suspend()
+            status = L10n.text("Capture stopped: %1$@ · Start again to retry.", error)
         }
     }
     var regionVersion: UInt64 { gate.version.region }

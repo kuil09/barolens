@@ -79,8 +79,12 @@ struct BarolensToolbarState: Equatable {
     }
     private func configure(_ key: String, label: String, symbol: String, enabled: Bool, help: String) {
         guard let item = buttons[key] else { return }
-        item.title = label
+        // Circular AppKit buttons can reset their image position when given a title.
+        // Keep the localized name for assistive technology, not in the drawn cell.
+        item.title = ""
+        item.alternateTitle = ""
         item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)
+        item.imagePosition = .imageOnly
         item.isEnabled = enabled
         item.toolTip = help
         item.setAccessibilityLabel(label)

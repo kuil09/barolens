@@ -29,13 +29,13 @@ import Testing
     capture.performClick(nil); record.performClick(nil)
     #expect(actions == ["capture", "record"])
     controls.update(.init(recording: true, choosingDestination: true, locked: true))
-    #expect(record.isEnabled && record.title == L10n.text("Stop Recording"))
+    #expect(record.isEnabled && record.accessibilityLabel() == L10n.text("Stop Recording"))
     #expect(record.contentTintColor == .systemRed && !capture.isEnabled)
     #expect(controls.buttons["lock"]?.state == .on)
     record.performClick(nil)
     #expect(actions.last == "record")
     controls.update(.init(hasFrame: true, finishing: true, locked: true))
-    #expect(!record.isEnabled && record.title == L10n.text("Saving…"))
+    #expect(!record.isEnabled && record.accessibilityLabel() == L10n.text("Saving…"))
     #expect(record.contentTintColor == nil)
     for key in ["folder", "lock", "reader", "settings"] {
         let button = try #require(controls.buttons[key])
@@ -83,20 +83,20 @@ import Testing
                     var state = BarolensToolbarState(hasFrame: hasFrame, recording: recording, finishing: finishing,
                         choosingDestination: choosingDestination, locked: true)
                     controls.update(state)
-                    let recordEnabled = record.isEnabled, title = record.title
+                    let recordEnabled = record.isEnabled, title = record.accessibilityLabel()
                     state.captureSucceeded = true
                     controls.update(state)
-                    #expect(capture.title == L10n.text("Image Saved"))
+                    #expect(capture.accessibilityLabel() == L10n.text("Image Saved"))
                     #expect(capture.image?.tiffRepresentation != camera)
                     #expect(capture.isEnabled == (hasFrame && !choosingDestination))
-                    #expect(record.isEnabled == recordEnabled && record.title == title)
+                    #expect(record.isEnabled == recordEnabled && record.accessibilityLabel() == title)
                     #expect(controls.buttons["folder"]?.isEnabled == true && controls.buttons["lock"]?.isEnabled == true)
                 }
             }
         }
     }
     controls.update(.init(hasFrame: true))
-    #expect(capture.title == L10n.text("Capture") && capture.image?.tiffRepresentation == camera)
+    #expect(capture.accessibilityLabel() == L10n.text("Capture") && capture.image?.tiffRepresentation == camera)
 }
 
 @Test @MainActor func rightRailRecordingTooltipExplainsUnavailableAndSavingStates() {
@@ -105,4 +105,27 @@ import Testing
     controls.update(.init(finishing: true))
     #expect(controls.buttons["record"]?.toolTip == L10n.text("Saving video…"))
     #expect(controls.buttons["record"]?.isEnabled == false)
+}
+
+@Test @MainActor func rightRailUsesIconsWithoutVisibleTitlesAndKeepsAccessibilityNames() throws {
+    _ = NSApplication.shared
+    let controls = BarolensToolbar(onCapture: {}, onRecord: {})
+    for state in [
+        BarolensToolbarState(),
+        .init(hasFrame: true, recording: true, locked: true),
+        .init(hasFrame: true, finishing: true, captureSucceeded: true)
+    ] {
+        controls.update(state)
+        for key in BarolensToolbar.actionIdentifiers {
+            let button = try #require(controls.buttons[key])
+            #expect(button.title.isEmpty, "(key) must not draw text over its icon")
+            #expect(button.alternateTitle.isEmpty)
+            #expect(button.imagePosition == .imageOnly)
+            #expect(button.image != nil)
+            #expect(button.accessibilityLabel()?.isEmpty == false)
+            #expect(button.toolTip?.isEmpty == false)
+        }
+    }
+    #expect(controls.buttons["capture"]?.accessibilityLabel() == L10n.text("Image Saved"))
+    #expect(controls.buttons["settings"]?.accessibilityLabel() == L10n.text("Settings"))
 }

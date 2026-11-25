@@ -48,3 +48,30 @@ import Testing
     #expect(blocks.contains { $0.text.contains("speichern") })
     #expect(blocks.contains { $0.text.contains("保存") })
 }
+
+@Test @MainActor func visionRecognizesMixedEnglishAndKoreanOnOneBaseline() async throws {
+    let context = try #require(CGContext(data: nil, width: 1900, height: 240, bitsPerComponent: 8, bytesPerRow: 0,
+                                        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    context.setFillColor(NSColor.white.cgColor)
+    context.fill(CGRect(x: 0, y: 0, width: 1900, height: 240))
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+    // One tightly spaced text run, not independently rendered labels on separate lines.
+    let line = "Save your changes before closing. 변경 사항을 저장한 후에 창을 닫아 주세요."
+    (line as NSString).draw(at: CGPoint(x: 30, y: 90),
+        withAttributes: [.font: NSFont.systemFont(ofSize: 32), .foregroundColor: NSColor.black])
+    NSGraphicsContext.restoreGraphicsState()
+
+    let blocks = try await OCRService().recognize(#require(context.makeImage()),
+                                                   source: .english, languages: [.english, .korean])
+    let english = try #require(blocks.first { $0.language == .english && $0.text.contains("your changes") },
+                               "Recognized: \(blocks.map(\.text))")
+    let korean = try #require(blocks.first { $0.language == .korean && $0.text.contains("저장") },
+                              "Recognized: \(blocks.map(\.text))")
+    #expect(english.bounds.midX < korean.bounds.midX)
+    #expect(english.bounds.intersection(korean.bounds).width < 0.01)
+    let pipelineContext = RegionalTranslationPipeline.Context(source: .english, target: .japanese,
+        languages: [.english, .korean, .japanese])
+    #expect(RegionalTranslationPipeline.accepts(english, in: pipelineContext))
+    #expect(!RegionalTranslationPipeline.accepts(korean, in: pipelineContext))
+}

@@ -42,7 +42,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private let firstFrame = CaptureFirstFrame()
     private(set) var activeLayout: CaptureLayout?
     var onFrame: ((CapturedFrame) -> Void)?
-    var onFailure: ((String) -> Void)?
+    var onFailure: ((String, UInt64) -> Void)?
 
     func start(globalRect: CGRect, screen: NSScreen, version: UInt64) async throws {
         requestSerial &+= 1
@@ -163,7 +163,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate {
             self.stream = nil
             self.activeLayout = nil
             self.firstFrame.reset(to: self.requestSerial)
-            self.onFailure?(description)
+            self.onFailure?(description, self.regionVersion)
         }
     }
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-beta.12 — build 22
+
+- Keep the existing Apple Vision OCR engine and recognize distinct adjacent runs of supported source and other languages without treating the entire mixed line as a source mismatch.
+- Keep right-edge action buttons icon-only while retaining localized tooltips and VoiceOver labels.
+- Preserve the translation start request while the overlay moves or resizes, and restart capture for the new region without requiring another toggle.
+
 ## 0.1.0-beta.11 — build 21
 
 - Move capture, folder, recording, click-through, reader and settings actions from the top toolbar to a separate vertical rail at the right edge. Keep the captured body, action controls and resize strips disjoint; scroll the rail at very small heights.

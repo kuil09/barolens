@@ -20,15 +20,124 @@ actor OCRService {
         request.automaticallyDetectsLanguage = true
         try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
         try Task.checkCancellation()
-        let lines = (request.results ?? []).compactMap { observation -> TextBlock? in
+        let lines = (request.results ?? []).flatMap { observation -> [TextBlock] in
             guard let candidate = observation.topCandidates(1).first,
-                  !candidate.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-            return TextBlock(text: candidate.string, bounds: observation.boundingBox,
-                             language: Self.detectLanguage(candidate.string, languages: languages), confidence: candidate.confidence)
+                  !candidate.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+            let text = candidate.string
+            let runs = Self.languageRuns(in: text)
+            if !runs.isEmpty {
+                let spans = runs.compactMap { run -> TextBlock? in
+                    guard let rectangle = try? candidate.boundingBox(for: run.range) else { return nil }
+                    let bounds = rectangle.boundingBox
+                    guard !bounds.isNull, !bounds.isInfinite, bounds.width > 0, bounds.height > 0 else { return nil }
+                    let language = if let languages { BarolensLanguage.match(run.language.rawValue, in: languages) }
+                        else { Optional(run.language) }
+                    return TextBlock(text: String(text[run.range]), bounds: bounds,
+                                     language: language, confidence: candidate.confidence)
+                }
+                // Never approximate a piece by the full line bounds: the overlay
+                // would paint over the neighboring language instead of that piece.
+                if spans.count == runs.count { return spans }
+            }
+            return [TextBlock(text: text, bounds: observation.boundingBox,
+                              language: Self.detectLanguage(text, languages: languages), confidence: candidate.confidence)]
         }
         // Establish layout context before language classification: a wrapped tail
         // such as "it." cannot reliably identify its language independently.
         return Self.assignLanguages(to: Self.groupParagraphs(lines), source: source, languages: languages)
+    }
+
+    struct LanguageRun {
+        let range: Range<String.Index>
+        let language: BarolensLanguage
+    }
+
+    /// Vision may report one observation for adjacent labels or sentences on the same
+    /// baseline. Do not feed a whole mixed observation to a single-language translator.
+    /// Split only when at least two ranges independently identify different languages.
+    nonisolated static func languageRuns(in text: String) -> [LanguageRun] {
+        func identified(_ ranges: [Range<String.Index>]) -> [LanguageRun] {
+            let runs = ranges.compactMap { range -> LanguageRun? in
+                guard let range = trimmedRange(range, in: text),
+                      text[range].unicodeScalars.filter({ CharacterSet.letters.contains($0) }).count >= 2,
+                      let language = detectLanguage(String(text[range])) else { return nil }
+                return LanguageRun(range: range, language: language)
+            }
+            guard let first = runs.first,
+                  runs.contains(where: { !$0.language.isSameLanguage(as: first.language) }) else { return [] }
+            return runs
+        }
+
+        // Visible label separators can also distinguish two Latin-script languages.
+        let separators = mixedLabelSeparators.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        if !separators.isEmpty {
+            var cursor = text.startIndex
+            var ranges: [Range<String.Index>] = []
+            for separator in separators {
+                guard let boundary = Range(separator.range, in: text) else { continue }
+                ranges.append(cursor..<boundary.lowerBound)
+                cursor = boundary.upperBound
+            }
+            ranges.append(cursor..<text.endIndex)
+            let runs = identified(ranges)
+            // Do not hide untranslated fragments of an otherwise unsplittable line.
+            if runs.count == ranges.filter({ trimmedRange($0, in: text) != nil }).count, runs.count > 1 {
+                return runs
+            }
+        }
+
+        var ranges: [Range<String.Index>] = []
+        var start = text.startIndex
+        var script: RunScript?
+        var previousLetterEnd: String.Index?
+        for index in text.indices {
+            guard let next = runScript(text[index]) else { continue }
+            let contiguous = previousLetterEnd == index
+            if let prior = script, prior != next {
+                // Han belongs to its surrounding Japanese/Korean word, not its own
+                // Chinese segment. Across a label boundary keep scripts separate.
+                if contiguous && prior == .han && (next == .kana || next == .hangul) {
+                    script = next
+                } else if !(contiguous && next == .han && (prior == .kana || prior == .hangul)) {
+                    // No separator may be a single brand or a mixed-script word.
+                    guard !contiguous else { return [] }
+                    ranges.append(start..<index)
+                    start = index
+                    script = next
+                }
+            } else {
+                script = next
+            }
+            previousLetterEnd = text.index(after: index)
+        }
+        guard !ranges.isEmpty else { return [] }
+        ranges.append(start..<text.endIndex)
+        let runs = identified(ranges)
+        // A product name, OCR speck, or another unclassified fragment does not
+        // justify cutting up a sentence. Keep the original conservative result.
+        return runs.count == ranges.count ? runs : []
+    }
+
+    private nonisolated static let mixedLabelSeparators = try! NSRegularExpression(
+        pattern: #"\s*[|｜•·]\s*|\s{2,}"#)
+
+    private enum RunScript { case han, hangul, kana, other }
+
+    private nonisolated static func runScript(_ character: Character) -> RunScript? {
+        for scalar in character.unicodeScalars where CharacterSet.letters.contains(scalar) {
+            if isHangul(scalar.value) { return .hangul }
+            if isKana(scalar.value) { return .kana }
+            if isHan(scalar.value) { return .han }
+            return .other
+        }
+        return nil
+    }
+
+    private nonisolated static func trimmedRange(_ range: Range<String.Index>, in text: String) -> Range<String.Index>? {
+        var lower = range.lowerBound, upper = range.upperBound
+        while lower < upper && text[lower].isWhitespace { lower = text.index(after: lower) }
+        while lower < upper && text[text.index(before: upper)].isWhitespace { upper = text.index(before: upper) }
+        return lower < upper ? lower..<upper : nil
     }
 
     nonisolated static func recognitionLanguages(supported: [String], source: BarolensLanguage?) throws -> [String] {

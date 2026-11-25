@@ -21,7 +21,7 @@ enum BarolensMain {
 
 @MainActor
 final class BarolensAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMenuItemValidation {
-    let model = BarolensModel()
+    let model: BarolensModel
     private lazy var exportCoordinator: BarolensExportCoordinator = {
         let coordinator = BarolensExportCoordinator(recordingFrame: { [weak self] in self?.model.latestRecordingFrame }, scene: { [weak self] in
             guard let self, model.hasFrame, let image = surface.canvas.snapshotImage() else { return nil }
@@ -57,6 +57,12 @@ final class BarolensAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     private var arranging = false
     private var resumeAfterArrangement = false
     private let observations = BarolensObservationBag()
+
+    init(model: BarolensModel = BarolensModel(), overlay: BarolensPanel? = nil) {
+        self.model = model
+        self.overlay = overlay
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         installMenu()
@@ -501,7 +507,9 @@ final class BarolensAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
             } catch is CancellationError {} catch {
                 guard model.regionVersion == version else { return }
                 model.suspend()
+                let stoppedVersion = model.regionVersion
                 await model.capture.stop()
+                guard model.regionVersion == stoppedVersion, !Task.isCancelled else { return }
                 model.permissionNeeded = !model.capture.access.isGranted
                 model.status = L10n.text("Could not start capture. %1$@", String(describing: error.localizedDescription))
             }
@@ -514,20 +522,19 @@ final class BarolensAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
     func windowDidResignKey(_ notification: Notification) {
         if notification.object as? NSWindow !== overlay { overlay.level = systemHandoff.isActive ? .normal : .floating }
     }
-    func windowWillMove(_ notification: Notification) {
-        guard notification.object as? NSWindow === overlay, !arranging, !overlay.synchronizingBody,
-              !overlay.recordingGeometryLocked else { return }
-        interruptForArrangement()
-    }
     func windowDidMove(_ notification: Notification) {
-        guard notification.object as? NSWindow === overlay, !arranging, !overlay.synchronizingBody else { return }
-        // AppKit can report movement while updating window styles without a new region.
-        // Actual OS-driven relocation still invalidates capture and safely saves the video.
-        guard !overlay.recordingGeometryUnchanged else { return }
-        if overlay.isVisible && (resumeAfterArrangement || model.running) {
-            resumeAfterArrangement = false
-            restart(reason: "windowMoved")
+        guard notification.object as? NSWindow === overlay, !arranging, !overlay.synchronizingBody,
+              !overlay.recordingGeometryUnchanged else { return }
+        // A title press need not move the window. Invalidate on movement, not on willMove,
+        // and keep a pending Start request queued while language checks are still running.
+        overlay.synchronizeBody()
+        guard overlay.isVisible, resumeAfterArrangement || model.running else { return }
+        resumeAfterArrangement = false
+        if let screen = overlay.screen ?? NSScreen.main {
+            let rect = BarolensCaptureRegion.screenRect(surface: surface, window: surface.window ?? overlay)
+            if let layout = CaptureLayout(globalRect: rect, screen: screen), model.capture.activeLayout == layout { return }
         }
+        restart(reason: "windowMoved")
     }
     func windowWillStartLiveResize(_ notification: Notification) {
         guard notification.object as? NSWindow === overlay, !overlay.recordingGeometryLocked else { return }
@@ -546,9 +553,10 @@ final class BarolensAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelega
         if resumeAfterArrangement { resumeAfterArrangement = false; restart() }
     }
     private func interruptForArrangement() {
-        let shouldResume = resumeAfterArrangement || model.running
+        // Resizing while languages are loading must not cancel an explicit queued Start.
+        guard model.running else { return }
         pause()
-        resumeAfterArrangement = shouldResume
+        resumeAfterArrangement = true
         // A live drag must reveal the destination, even though translation is suspended.
         surface.setTranslationActive(false, arranging: resumeAfterArrangement)
     }

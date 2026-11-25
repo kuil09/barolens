@@ -36,6 +36,22 @@ private func line(_ text: String, x: CGFloat = 0.1, y: CGFloat = 0.8,
     #expect(OCRService.detectLanguage("Bonjour tout le monde, comment allez vous aujourd'hui?", languages: [.english, .korean]) == nil)
 }
 
+@Test func separateStrongMixedLanguageRunsWithoutRelabelingInlineNames() {
+    let adjacent = "日本語の設定を変更してください。 한국어 설정을 변경해 주세요."
+    let runs = OCRService.languageRuns(in: adjacent)
+    #expect(runs.map(\.language) == [.japanese, .korean])
+    #expect(runs.map { String(adjacent[$0.range]) } == ["日本語の設定を変更してください。", "한국어 설정을 변경해 주세요."])
+
+    let separated = "Bonjour tout le monde, comment allez vous aujourd'hui? | Bitte speichern Sie Ihre Änderungen vor dem Schließen."
+    let labelRuns = OCRService.languageRuns(in: separated)
+    #expect(labelRuns.map { $0.language.languageCode } == ["fr", "de"])
+    #expect(labelRuns.allSatisfy { !separated[$0.range].contains("|") })
+
+    #expect(OCRService.languageRuns(in: "OpenAIのアカウント設定を変更します。").isEmpty)
+    #expect(OCRService.languageRuns(in: "This is an English sentence with one 가").isEmpty)
+    #expect(OCRService.languageRuns(in: "한국어와日本語です").isEmpty)
+}
+
 @Test func neighboringContextIsLocalAndDoesNotGuessLatin() {
     let lines = [line("これは日本語の説明です", y: 0.8), line("設定", y: 0.75),
                  line("設定", x: 0.6, y: 0.75), line("Oui", y: 0.60), line("設定", y: 0.3)]
