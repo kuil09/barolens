@@ -91,3 +91,21 @@ private func line(_ text: String, x: CGFloat = 0.1, y: CGFloat = 0.8,
     #expect(OCRService.groupParagraphs([line("  ")]).isEmpty)
 }
 }
+
+@Test func inlineNamesDoNotEraseChineseOrMergeSeparateEnglish() throws {
+    let chinese = try #require(BarolensLanguage(rawValue: "zh-TW"))
+    let langs = [chinese, .english, .korean, .japanese]
+    let message = "市場關注聯準會（Fed）利率政策，AI族群走弱，S&P 500指數同步下跌。"
+    #expect(OCRService.detectLanguage(message, source: chinese, languages: langs) == chinese)
+    let separate = "市場關注聯準會將公布最新利率決策。 | Save your changes before closing."
+    #expect(OCRService.detectLanguage(separate, source: chinese, languages: langs) == nil)
+    #expect(OCRService.languageRuns(in: separate).map(\.language.languageCode) == ["zh", "en"])
+    #expect(OCRService.detectLanguage("市場關注聯準會將公布最新利率決策。 BUY NOW", source: chinese, languages: langs) == nil)
+    #expect(OCRService.detectLanguage("Please save your changes before closing.", source: chinese, languages: langs) == .english)
+}
+
+@Test func wrappedDecimalDoesNotJoinAnOrdinaryNextLine() {
+    #expect(TextBlock.continuesWrappedDecimal(after: "標普指數下跌36.", with: "08點，或0.50%。"))
+    #expect(!TextBlock.continuesWrappedDecimal(after: "今天是第36.", with: "08 步繼續操作"))
+    #expect(!TextBlock.continuesWrappedDecimal(after: "The index ended at 36.", with: "08% of participants voted."))
+}

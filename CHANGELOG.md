@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-beta.13 — build 23
+
+- Translate Chinese prose that contains inline labels such as AI, Fed, and S&P 500 without replacing Apple Vision or merging independent text in neighboring languages.
+- Keep decimal values intact when a number wraps onto the next line within the same column of Chinese prose.
+
 ## 0.1.0-beta.12 — build 22
 
 - Keep the existing Apple Vision OCR engine and recognize distinct adjacent runs of supported source and other languages without treating the entire mixed line as a source mismatch.

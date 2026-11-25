@@ -24,7 +24,7 @@ actor OCRService {
             guard let candidate = observation.topCandidates(1).first,
                   !candidate.string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
             let text = candidate.string
-            let runs = Self.languageRuns(in: text)
+            let runs = Self.inlineCJKProse(text) == nil ? Self.languageRuns(in: text) : []
             if !runs.isEmpty {
                 let spans = runs.compactMap { run -> TextBlock? in
                     guard let rectangle = try? candidate.boundingBox(for: run.range) else { return nil }
@@ -149,8 +149,35 @@ actor OCRService {
         return [identifier] + supported.filter { $0 != identifier }
     }
 
+    // Strip only bounded inline identifiers for language detection. Keep the
+    // original OCR text and coordinates for translation and rendering.
+    private nonisolated static let inlineLatinName = try! NSRegularExpression(
+        pattern: #"(?<![A-Za-z0-9])(?:[(（][A-Za-z][A-Za-z0-9&.+-]{1,9}[)）]|(?:[A-Z][A-Z0-9]{1,5}(?:[&./-][A-Z0-9]{1,5})*|[A-Z][&./-][A-Z0-9]{1,5}|[A-Z][il])(?: ?[0-9]{1,4})?)(?![A-Za-z0-9])"#)
+
+    private nonisolated static func inlineCJKProse(_ text: String) -> String? {
+        guard text.range(of: #"[A-Za-z]"#, options: .regularExpression) != nil,
+              text.range(of: #"[|｜•·]|[^\S\n]{2,}"#, options: .regularExpression) == nil else { return nil }
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = inlineLatinName.matches(in: text, range: range)
+        guard !matches.isEmpty else { return nil }
+        // Do not treat a string of standalone English words as CJK identifiers.
+        for (lhs, rhs) in zip(matches, matches.dropFirst()) {
+            let middle = NSRange(location: NSMaxRange(lhs.range), length: rhs.range.location - NSMaxRange(lhs.range))
+            guard let t = Range(middle, in: text),
+                  text[t].unicodeScalars.contains(where: { isHan($0.value) || isHangul($0.value) || isKana($0.value) }) else { return nil }
+        }
+        let cleaned = inlineLatinName.stringByReplacingMatches(in: text, range: range, withTemplate: " ")
+        let letters = cleaned.unicodeScalars.filter { CharacterSet.letters.contains($0) }
+        let foreign = text.unicodeScalars.filter { CharacterSet.letters.contains($0) }.count - letters.count
+        guard letters.count >= 8, foreign > 0, letters.count >= foreign * 3,
+              letters.allSatisfy({ isHan($0.value) || isHangul($0.value) || isKana($0.value) }),
+              !(letters.contains { isHangul($0.value) } && letters.contains { isKana($0.value) }) else { return nil }
+        return cleaned
+    }
+
     /// Detect without constraining NL hypotheses, then match to the runtime translation catalog.
     nonisolated static func detectLanguage(_ text: String, source: BarolensLanguage? = nil, languages: [BarolensLanguage]? = nil) -> BarolensLanguage? {
+        let text = inlineCJKProse(text) ?? text
         let letters = text.unicodeScalars.filter { CharacterSet.letters.contains($0) }
         guard !letters.isEmpty else { return nil }
         let recognizer = NLLanguageRecognizer()
@@ -271,7 +298,8 @@ actor OCRService {
                 let columnWidth = groups[index].map(\.bounds.width).max() ?? first.bounds.width
                 let aligned = abs(first.bounds.minX - line.bounds.minX) <= height * 0.6
                     && line.bounds.maxX <= first.bounds.minX + columnWidth + height
-                let continuation = !endsSentence(last.text) || paragraphLine(line.text)
+                let continuation = !endsSentence(last.text) || paragraphLine(line.text) ||
+                    TextBlock.continuesWrappedDecimal(after: last.text, with: line.text)
                 let contextLanguage = groups[index].compactMap(\.language).first
                 let compatible = contextLanguage == nil || line.language == nil || contextLanguage == line.language
                 return compatible && paragraphLine(first.text) && continuation

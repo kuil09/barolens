@@ -70,9 +70,18 @@ struct TextBlock: Identifiable, Sendable, Equatable {
         sourceLines.enumerated().reduce("") { result, entry in
             let text = entry.element.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard entry.offset > 0 else { return text }
-            let separator = language == .japanese || result.hasSuffix("-") ? "" : " "
+            let previous = sourceLines[entry.offset - 1].text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let separator = language == .japanese || result.hasSuffix("-") ||
+                Self.continuesWrappedDecimal(after: previous, with: text) ? "" : " "
             return result + separator + text
         }
+    }
+    /// A terminal dot after a number can be a decimal split by a CJK display column.
+    /// Require a CJK unit or percent on the next line; do not join ordinary list items.
+    static func continuesWrappedDecimal(after previous: String, with next: String) -> Bool {
+        previous.range(of: #"\p{Han}"#, options: .regularExpression) != nil &&
+            previous.range(of: #"[0-9]\.[\s]*$"#, options: .regularExpression) != nil &&
+            next.range(of: #"^\s*[0-9]{1,4}(?:[點点元％%]|\s*[％%])"#, options: .regularExpression) != nil
     }
     init(id: UUID = UUID(), text: String, bounds: CGRect, language: BarolensLanguage?, confidence: Float,
          sourceLines: [SourceLine]? = nil) {

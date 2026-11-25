@@ -75,3 +75,32 @@ import Testing
     #expect(RegionalTranslationPipeline.accepts(english, in: pipelineContext))
     #expect(!RegionalTranslationPipeline.accepts(korean, in: pipelineContext))
 }
+
+@Test @MainActor func visionKeepsTraditionalChineseMarketProseWithInlineTickers() async throws {
+    let context = try #require(CGContext(data: nil, width: 1400, height: 360, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+    let font = try #require(NSFont(name: "PingFangTC-Regular", size: 32))
+    let source = try #require(BarolensLanguage(rawValue: "zh-TW"))
+    context.setFillColor(NSColor.black.cgColor)
+    context.fill(CGRect(x: 0, y: 0, width: 1400, height: 360))
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
+    let rows = [
+        "市場關注聯準會（Fed）利率決策，AI族群跌幅擴大，",
+        "同時那斯達克指數下跌356.02點，標普S&P 500指數則下跌36.",
+        "08點，或0.50%。"
+    ]
+    for (i, line) in rows.enumerated() {
+        (line as NSString).draw(at: CGPoint(x: 30, y: 265 - i * 38),
+            withAttributes: [.font: font, .foregroundColor: NSColor.white])
+    }
+    NSGraphicsContext.restoreGraphicsState()
+    let blocks = try await OCRService().recognize(#require(context.makeImage()),
+        source: source, languages: [source, .korean, .english, .japanese])
+    let tc = RegionalTranslationPipeline.Context(source: source, target: .korean, languages: [source, .korean, .english, .japanese])
+    let accepted = blocks.filter { RegionalTranslationPipeline.accepts($0, in: tc) }
+    let combined = accepted.map(\.translationText).joined(separator: "\n")
+    #expect(combined.contains("聯準會") && combined.contains("Fed") && (combined.contains("AI") || combined.contains("Al")), "OCR: \(blocks.map { ($0.text, $0.language?.rawValue) })")
+    #expect(combined.contains("那斯達克") && combined.contains("S&P") && combined.contains("356.02"))
+    #expect(combined.contains("36.08") && combined.contains("0.50"))
+}
